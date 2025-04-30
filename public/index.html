@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>旅游日记平台 API</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+    }
+    h2 {
+      color: #3498db;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+      margin-top: 30px;
+    }
+    code {
+      background: #f4f4f4;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .endpoint {
+      background: #f8f9fa;
+      padding: 15px;
+      margin: 10px 0;
+      border-left: 4px solid #3498db;
+      border-radius: 0 4px 4px 0;
+    }
+    .method {
+      font-weight: bold;
+      color: #e74c3c;
+    }
+  </style>
+</head>
+<body>
+  <h1>旅游日记平台 API</h1>
+  
+  <p>这是旅游日记平台的后端 API 服务，提供用户系统和游记管理功能。</p>
+  
+  <h2>主要功能</h2>
+  <ul>
+    <li>用户注册和登录</li>
+    <li>游记发布、查看和管理</li>
+    <li>内容审核系统</li>
+  </ul>
+  
+  <h2>API 文档</h2>
+  <p>可用的 API 端点：</p>
+  
+  <div class="endpoint">
+    <p><span class="method">GET</span> /api/diaries</p>
+    <p>获取所有已批准的游记列表（分页）</p>
+  </div>
+  
+  <div class="endpoint">
+    <p><span class="method">GET</span> /api/diaries/:id</p>
+    <p>获取特定游记的详细信息</p>
+  </div>
+  
+  <div class="endpoint">
+    <p><span class="method">POST</span> /api/users/register</p>
+    <p>用户注册</p>
+  </div>
+  
+  <div class="endpoint">
+    <p><span class="method">POST</span> /api/users/login</p>
+    <p>用户登录</p>
+  </div>
+  
+  <p>更多详细的 API 文档正在整理中...</p>
+  
+  <h2>技术栈</h2>
+  <ul>
+    <li>Node.js + Express</li>
+    <li>MongoDB + Mongoose</li>
+    <li>JWT 认证</li>
+  </ul>
+  
+  <footer style="margin-top: 50px; text-align: center; color: #7f8c8d; font-size: 0.9em;">
+    <p>© 2025 旅游日记平台</p>
+  </footer>
+</body>
+</html> 
