@@ -13,8 +13,8 @@ import { UsersModule } from '../users/users.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'travel_diary_secret_key_123456',
-        signOptions: { expiresIn: '7d' },
+        secret: configService.get<string>('jwt.secret') || 'travel_diary_secret_key_123456',
+        signOptions: { expiresIn: configService.get<string>('jwt.expiresIn') || '7d' },
       }),
     }),
     forwardRef(() => UsersModule),
