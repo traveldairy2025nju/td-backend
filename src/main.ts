@@ -8,10 +8,8 @@ import { ConfigService } from '@nestjs/config';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
-  // 设置API前缀（仅为功能模块添加前缀，保留根路径访问）
-  app.setGlobalPrefix('api', {
-    exclude: ['/', '/ping', '/init-test-user'],  // 排除根路径、ping路径和测试用户创建接口
-  });
+  // 设置API前缀
+  app.setGlobalPrefix('api');
   
   // 全局验证管道
   app.useGlobalPipes(
@@ -30,6 +28,12 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
+  
+  // 提供JSON格式的API文档
+  app.use('/api-json', (req, res) => {
+    res.send(document);
+  });
+  
   SwaggerModule.setup('api-docs', app, document);
   
   // 启用CORS

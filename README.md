@@ -11,7 +11,7 @@
 #### 用户系统（移动端）
 - 游记列表（首页）：瀑布流展示审核通过的游记，支持搜索
 - 我的游记：展示当前用户发布的游记，支持编辑和删除
-- 游记发布：支持多图片和单视频上传，支持定位功能
+- 游记发布：支持多图片和单视频上传
 - 游记详情：展示完整内容，支持图片滑动和视频播放
 - 用户登录/注册：基于用户名和密码，支持头像上传
 
@@ -24,7 +24,7 @@
 - **服务端**: Node.js, NestJS
 - **数据库**: MongoDB, Mongoose
 - **认证**: JWT (JSON Web Tokens), Passport
-- **文件上传**: Multer
+- **对象存储**: MinIO
 - **安全**: bcryptjs
 - **API文档**: Swagger/OpenAPI
 
@@ -34,6 +34,7 @@
 
 - Node.js (v14+)
 - MongoDB
+- MinIO 服务
 
 ### 安装步骤
 
@@ -54,6 +55,14 @@
    MONGODB_URI=mongodb://localhost:27017/travel_diary
    JWT_SECRET=travel_diary_secret_key_123456
    NODE_ENV=development
+   
+   # MinIO配置
+   MINIO_ENDPOINT=localhost
+   MINIO_PORT=9000
+   MINIO_ACCESS_KEY=minioadmin
+   MINIO_SECRET_KEY=minioadmin
+   MINIO_BUCKET=travel-diary
+   MINIO_USE_SSL=false
    ```
 
 4. 运行应用
@@ -72,11 +81,22 @@
 http://localhost:3000/api-docs
 ```
 
+如需获取JSON格式的API文档，可访问：
+```
+http://localhost:3000/api-json
+```
+
 ## 项目结构
 
 ```
 nest-td-backend/
 ├── src/
+│   ├── admin/              # 管理员模块
+│   │   ├── dto/            # 数据传输对象
+│   │   ├── guards/         # 管理员守卫
+│   │   ├── admin.controller.ts
+│   │   ├── admin.module.ts
+│   │   └── admin.service.ts
 │   ├── auth/               # 认证相关功能
 │   │   ├── guards/         # 认证守卫
 │   │   ├── strategies/     # 认证策略
@@ -84,21 +104,27 @@ nest-td-backend/
 │   │   └── auth.service.ts # 认证服务
 │   ├── common/             # 通用功能
 │   │   ├── decorators/     # 自定义装饰器
-│   │   ├── exceptions/     # 异常过滤器
-│   │   └── pipes/          # 验证管道
 │   ├── config/             # 配置文件
+│   ├── diaries/            # 游记模块
+│   │   ├── dto/            # 数据传输对象
+│   │   ├── entities/       # 实体定义
+│   │   ├── diaries.controller.ts
+│   │   ├── diaries.module.ts
+│   │   └── diaries.service.ts
+│   ├── minio/              # MinIO模块
+│   │   ├── minio.module.ts
 │   ├── users/              # 用户模块
 │   │   ├── dto/            # 数据传输对象
 │   │   ├── entities/       # 实体定义
-│   │   ├── users.controller.ts # 用户控制器
-│   │   ├── users.module.ts     # 用户模块
-│   │   └── users.service.ts    # 用户服务
+│   │   ├── users.controller.ts
+│   │   ├── users.module.ts
+│   │   └── users.service.ts
 │   ├── utils/              # 工具函数
+│   │   ├── minio.utils.ts  # MinIO工具类
+│   ├── app.controller.ts   # 主控制器
 │   ├── app.module.ts       # 主模块
+│   ├── app.service.ts      # 主服务
 │   └── main.ts             # 入口文件
-├── uploads/                # 上传文件存储
-│   ├── images/             # 图片存储
-│   └── videos/             # 视频存储
 ├── .env                    # 环境变量
 ├── package.json            # 项目配置
 └── tsconfig.json           # TypeScript配置
@@ -110,8 +136,41 @@ nest-td-backend/
 
 | 方法 | 端点 | 描述 | 权限 |
 |------|------|------|------|
-| POST | /api/users/register | 用户注册 | 公开 |
-| POST | /api/users/login | 用户登录 | 公开 |
-| GET | /api/users/profile | 获取用户资料 | 用户 |
-| PUT | /api/users/avatar | 更新用户头像 | 用户 |
-| PUT | /api/users/nickname | 更新用户昵称 | 用户 | 
+| POST | /users/register | 用户注册 | 公开 |
+| POST | /auth/login | 用户登录 | 公开 |
+| GET | /users/me | 获取用户资料 | 用户 |
+| PUT | /users/avatar | 更新用户头像 | 用户 |
+| PUT | /users/nickname | 更新用户昵称 | 用户 |
+
+### 游记相关 API
+
+| 方法 | 端点 | 描述 | 权限 |
+|------|------|------|------|
+| GET | /diaries | 获取已批准的游记列表 | 公开 |
+| GET | /diaries/:id | 获取游记详情 | 公开 |
+| POST | /diaries | 创建新游记 | 用户 |
+| PUT | /diaries/:id | 更新游记 | 用户 |
+| DELETE | /diaries/:id | 删除游记 | 用户 |
+| GET | /diaries/user/me | 获取当前用户的游记 | 用户 |
+
+### 管理员相关 API
+
+| 方法 | 端点 | 描述 | 权限 |
+|------|------|------|------|
+| GET | /admin/diaries/pending | 获取待审核游记列表 | 审核员/管理员 |
+| PUT | /admin/diaries/:id/approve | 审核通过游记 | 审核员/管理员 |
+| PUT | /admin/diaries/:id/reject | 拒绝游记 | 审核员/管理员 |
+| DELETE | /admin/diaries/:id | 管理员删除游记 | 管理员 |
+
+## 关于数据库
+
+本项目使用MongoDB作为数据库，主要包含以下集合：
+- users: 存储用户信息
+- diaries: 存储游记信息
+
+用户角色分为三种：
+- user: 普通用户
+- reviewer: 审核员
+- admin: 管理员
+
+管理员和审核员的添加需要在数据库中直接修改用户的role字段。 
