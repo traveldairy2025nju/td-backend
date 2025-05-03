@@ -6,6 +6,7 @@ import { join } from 'path';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
+import { User, UserSchema } from './users/entities/user.entity';
 
 @Module({
   imports: [
@@ -22,6 +23,9 @@ import { AppController } from './app.controller';
         uri: configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/travel_diary',
       }),
     }),
+    
+    // 添加User模型，供AppController使用
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     
     // 静态文件服务
     ServeStaticModule.forRoot({
