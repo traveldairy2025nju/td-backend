@@ -14,20 +14,14 @@ export class DiariesService {
     private readonly minioUtil: MinioUtil,
   ) {}
 
-  async create(createDiaryDto: CreateDiaryDto, author: User, videoFile?: Express.Multer.File): Promise<DiaryDocument> {
+  async create(createDiaryDto: CreateDiaryDto, author: User): Promise<DiaryDocument> {
     try {
-      // 上传视频文件
-      let videoUrl = null;
-      if (videoFile) {
-        videoUrl = await this.minioUtil.upload(videoFile);
-      }
-
       // 创建新日记
       const newDiary = new this.diaryModel({
         title: createDiaryDto.title,
         content: createDiaryDto.content,
         images: createDiaryDto.images,
-        video: videoUrl,
+        video: createDiaryDto.videoUrl || null,
         author: author._id,
         status: DiaryStatus.PENDING,
       });
@@ -89,7 +83,7 @@ export class DiariesService {
     return diary;
   }
 
-  async update(id: string, updateDiaryDto: UpdateDiaryDto, userId: string, videoFile?: Express.Multer.File): Promise<DiaryDocument> {
+  async update(id: string, updateDiaryDto: UpdateDiaryDto, userId: string): Promise<DiaryDocument> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('无效的日记ID');
     }
@@ -111,12 +105,6 @@ export class DiariesService {
       throw new BadRequestException('已审核通过的日记不能再次编辑');
     }
     
-    // 上传视频文件
-    let videoUrl = diary.video;
-    if (videoFile) {
-      videoUrl = await this.minioUtil.upload(videoFile);
-    }
-    
     // 更新日记
     const updatedDiary = await this.diaryModel.findByIdAndUpdate(
       id,
@@ -124,7 +112,7 @@ export class DiariesService {
         title: updateDiaryDto.title || diary.title,
         content: updateDiaryDto.content || diary.content,
         images: updateDiaryDto.images || diary.images,
-        video: videoUrl,
+        video: updateDiaryDto.videoUrl !== undefined ? updateDiaryDto.videoUrl : diary.video,
         status: DiaryStatus.PENDING, // 重新设置为待审核
         rejectReason: null, // 清除拒绝原因
         reviewedBy: null, // 清除审核人

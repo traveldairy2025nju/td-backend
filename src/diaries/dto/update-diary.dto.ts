@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsArray } from 'class-validator';
+import { IsOptional, IsString, IsArray, IsUrl } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateDiaryDto {
@@ -28,11 +28,12 @@ export class UpdateDiaryDto {
   images?: string[];
 
   @ApiProperty({
-    description: '视频',
+    description: '视频URL(可选，通过上传接口获取)',
     required: false,
-    type: 'string',
-    format: 'binary',
+    example: 'http://172.29.4.76:9000/travel-diary/video123.mp4',
   })
   @IsOptional()
-  video?: any;
+  @IsString()
+  @IsUrl({}, { message: '视频URL格式不正确' })
+  videoUrl?: string;
 } 
