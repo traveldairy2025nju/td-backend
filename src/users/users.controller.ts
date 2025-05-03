@@ -6,6 +6,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { UpdateNicknameDto } from './dto/update-nickname.dto';
+import { UpdateAvatarDto } from './dto/update-avatar.dto';
 import { AuthService } from '../auth/auth.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
@@ -107,25 +108,15 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新用户头像' })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        avatar: { type: 'string', format: 'binary' },
-      },
-    },
-  })
   @ApiResponse({ status: 200, description: '头像更新成功' })
-  @ApiResponse({ status: 400, description: '请上传头像图片' })
+  @ApiResponse({ status: 400, description: '头像URL不能为空' })
   @ApiResponse({ status: 401, description: '未授权' })
   @ApiResponse({ status: 404, description: '用户未找到' })
-  @UseInterceptors(FileInterceptor('avatar'))
   async updateAvatar(
     @GetUser('_id') userId: string,
-    @UploadedFile() avatar: Express.Multer.File,
+    @Body() updateAvatarDto: UpdateAvatarDto,
   ) {
-    const updatedUser = await this.usersService.updateAvatar(userId, avatar);
+    const updatedUser = await this.usersService.updateAvatar(userId, updateAvatarDto);
     
     return {
       success: true,

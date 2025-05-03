@@ -8,18 +8,14 @@ import {
   UseGuards, 
   Query, 
   Put,
-  UseInterceptors,
-  UploadedFile,
   ParseIntPipe,
   DefaultValuePipe
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { 
   ApiTags, 
   ApiOperation, 
   ApiResponse, 
   ApiBearerAuth, 
-  ApiConsumes, 
   ApiBody,
   ApiQuery,
   ApiParam
@@ -41,18 +37,15 @@ export class DiariesController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '创建新游记' })
-  @ApiConsumes('multipart/form-data')
   @ApiBody({ type: CreateDiaryDto })
   @ApiResponse({ status: 201, description: '创建成功' })
   @ApiResponse({ status: 400, description: '创建失败' })
   @ApiResponse({ status: 401, description: '未授权' })
-  @UseInterceptors(FileInterceptor('video'))
   async create(
     @Body() createDiaryDto: CreateDiaryDto,
-    @GetUser() user: User,
-    @UploadedFile() video?: Express.Multer.File
+    @GetUser() user: User
   ) {
-    const diary = await this.diariesService.create(createDiaryDto, user, video);
+    const diary = await this.diariesService.create(createDiaryDto, user);
     return {
       success: true,
       message: '游记创建成功，等待审核',
@@ -135,21 +128,18 @@ export class DiariesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新游记' })
   @ApiParam({ name: 'id', description: '游记ID' })
-  @ApiConsumes('multipart/form-data')
   @ApiBody({ type: UpdateDiaryDto })
   @ApiResponse({ status: 200, description: '更新成功' })
   @ApiResponse({ status: 400, description: '更新失败，已审核通过的游记不能再次编辑' })
   @ApiResponse({ status: 401, description: '未授权' })
   @ApiResponse({ status: 403, description: '无权更新此游记' })
   @ApiResponse({ status: 404, description: '游记未找到' })
-  @UseInterceptors(FileInterceptor('video'))
   async update(
     @Param('id') id: string,
     @Body() updateDiaryDto: UpdateDiaryDto,
-    @GetUser('_id') userId: string,
-    @UploadedFile() video?: Express.Multer.File
+    @GetUser('_id') userId: string
   ) {
-    const diary = await this.diariesService.update(id, updateDiaryDto, userId, video);
+    const diary = await this.diariesService.update(id, updateDiaryDto, userId);
     return {
       success: true,
       message: '游记更新成功，等待审核',

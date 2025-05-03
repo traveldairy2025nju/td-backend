@@ -5,6 +5,7 @@ import { User, UserDocument } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateNicknameDto } from './dto/update-nickname.dto';
 import { MinioUtil } from '../utils/minio.utils';
+import { UpdateAvatarDto } from './dto/update-avatar.dto';
 
 @Injectable()
 export class UsersService {
@@ -79,8 +80,8 @@ export class UsersService {
     return user;
   }
 
-  // 更新用户头像
-  async updateAvatar(userId: string, avatarFile: Express.Multer.File): Promise<UserDocument> {
+  // 更新用户头像 (旧方法，已废弃)
+  async updateAvatarWithFile(userId: string, avatarFile: Express.Multer.File): Promise<UserDocument> {
     if (!avatarFile) {
       throw new BadRequestException('请上传头像图片');
     }
@@ -92,6 +93,24 @@ export class UsersService {
       .findByIdAndUpdate(
         userId,
         { avatar: avatarUrl },
+        { new: true }
+      )
+      .select('-password')
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('用户未找到');
+    }
+
+    return user;
+  }
+
+  // 更新用户头像 (新方法，使用URL)
+  async updateAvatar(userId: string, updateAvatarDto: UpdateAvatarDto): Promise<UserDocument> {
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { avatar: updateAvatarDto.avatarUrl },
         { new: true }
       )
       .select('-password')

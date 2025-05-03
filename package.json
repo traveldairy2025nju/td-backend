@@ -27,6 +27,7 @@
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/serve-static": "^4.0.0",
     "@nestjs/swagger": "^8.1.1",
+    "@nestjs/throttler": "^6.4.0",
     "@types/mongoose": "^5.11.97",
     "bcryptjs": "^3.0.2",
     "class-transformer": "^0.5.1",
