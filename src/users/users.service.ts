@@ -4,13 +4,16 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateNicknameDto } from './dto/update-nickname.dto';
+import { MinioUtil } from '../utils/minio.utils';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
+  private readonly DEFAULT_AVATAR = 'http://172.29.4.76:9000/travel-diary/default-avatar.png';
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly minioUtil: MinioUtil,
   ) {}
 
   // 通过用户名查找用户
@@ -32,7 +35,7 @@ export class UsersService {
   }
 
   // 创建用户（注册）
-  async create(createUserDto: CreateUserDto, avatarFile?: any): Promise<UserDocument> {
+  async create(createUserDto: CreateUserDto, avatarFile?: Express.Multer.File): Promise<UserDocument> {
     // 检查用户名是否已被占用
     const existingUser = await this.findByUsername(createUserDto.username);
     if (existingUser) {
@@ -41,10 +44,16 @@ export class UsersService {
 
     this.logger.log(`创建新用户: ${createUserDto.username}`);
 
+    // 处理头像上传
+    let avatarUrl = this.DEFAULT_AVATAR; // 默认头像
+    if (avatarFile) {
+      avatarUrl = await this.minioUtil.upload(avatarFile);
+    }
+
     // 创建用户
     const newUser = new this.userModel({
       ...createUserDto,
-      avatar: avatarFile ? `/uploads/images/${avatarFile.filename}` : '/uploads/images/default-avatar.png',
+      avatar: avatarUrl,
     });
 
     const savedUser = await newUser.save();
@@ -71,17 +80,18 @@ export class UsersService {
   }
 
   // 更新用户头像
-  async updateAvatar(userId: string, avatarFile: any): Promise<UserDocument> {
+  async updateAvatar(userId: string, avatarFile: Express.Multer.File): Promise<UserDocument> {
     if (!avatarFile) {
       throw new BadRequestException('请上传头像图片');
     }
 
-    const avatarPath = `/uploads/images/${avatarFile.filename}`;
+    // 上传到Minio
+    const avatarUrl = await this.minioUtil.upload(avatarFile);
     
     const user = await this.userModel
       .findByIdAndUpdate(
         userId,
-        { avatar: avatarPath },
+        { avatar: avatarUrl },
         { new: true }
       )
       .select('-password')

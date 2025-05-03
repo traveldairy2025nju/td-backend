@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import appConfig from './config/app.config';
+import minioConfig from './config/minio.config';
+import { MinioModule } from './minio/minio.module';
 import { User, UserSchema } from './users/entities/user.entity';
 
 @Module({
@@ -13,31 +15,28 @@ import { User, UserSchema } from './users/entities/user.entity';
     // 配置模块
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [appConfig, minioConfig],
     }),
     
     // MongoDB连接
     MongooseModule.forRootAsync({
-      imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/travel_diary',
+      useFactory: (configService: ConfigService) => ({
+        uri: configService.get<string>('app.mongoUri'),
       }),
     }),
     
-    // 添加User模型，供AppController使用
+    // 为AppController提供User模型
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     
-    // 静态文件服务
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/uploads',
-    }),
+    // Minio模块
+    MinioModule,
     
     // 功能模块
     UsersModule,
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [AppService],
 })
 export class AppModule {} 

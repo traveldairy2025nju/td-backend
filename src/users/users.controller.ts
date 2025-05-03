@@ -9,7 +9,6 @@ import { UpdateNicknameDto } from './dto/update-nickname.dto';
 import { AuthService } from '../auth/auth.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
-import { imageFileFilter } from '../utils/file-upload.utils';
 
 @ApiTags('用户')
 @Controller('users')
@@ -44,14 +43,10 @@ export class UsersController {
   })
   @ApiResponse({ status: 201, description: '注册成功' })
   @ApiResponse({ status: 400, description: '用户名已被占用' })
-  @UseInterceptors(
-    FileInterceptor('avatar', {
-      fileFilter: imageFileFilter,
-    }),
-  )
+  @UseInterceptors(FileInterceptor('avatar'))
   async register(
     @Body() createUserDto: CreateUserDto,
-    @UploadedFile() avatar: any,
+    @UploadedFile() avatar: Express.Multer.File,
   ) {
     const user = await this.usersService.create(createUserDto, avatar);
     
@@ -125,14 +120,10 @@ export class UsersController {
   @ApiResponse({ status: 400, description: '请上传头像图片' })
   @ApiResponse({ status: 401, description: '未授权' })
   @ApiResponse({ status: 404, description: '用户未找到' })
-  @UseInterceptors(
-    FileInterceptor('avatar', {
-      fileFilter: imageFileFilter,
-    }),
-  )
+  @UseInterceptors(FileInterceptor('avatar'))
   async updateAvatar(
     @GetUser('_id') userId: string,
-    @UploadedFile() avatar: any,
+    @UploadedFile() avatar: Express.Multer.File,
   ) {
     const updatedUser = await this.usersService.updateAvatar(userId, avatar);
     

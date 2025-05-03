@@ -3,20 +3,23 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './users/entities/user.entity';
-import * as bcrypt from 'bcryptjs';
+import { AppService } from './app.service';
 
 @ApiTags('基础接口')
 @Controller()
 export class AppController {
+  private readonly DEFAULT_AVATAR = 'http://172.29.4.76:9000/travel-diary/default-avatar.png';
+
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly appService: AppService,
   ) {}
 
   @Get()
   @ApiOperation({ summary: '根路径测试接口' })
   @ApiResponse({ status: 200, description: '返回 Hello World!' })
   getHello(): string {
-    return 'Hello World!';
+    return this.appService.getHello();
   }
 
   @Get('ping')
@@ -60,7 +63,7 @@ export class AppController {
         username: 'test',
         password: 'test123456',  // 明文密码，会通过pre-save钩子加密
         nickname: '测试用户',
-        avatar: '/uploads/images/default-avatar.png',
+        avatar: this.DEFAULT_AVATAR,
         role: 'user'
       });
       

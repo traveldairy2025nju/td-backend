@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -11,11 +11,6 @@ async function bootstrap() {
   // 设置API前缀（仅为功能模块添加前缀，保留根路径访问）
   app.setGlobalPrefix('api', {
     exclude: ['/', '/ping', '/init-test-user'],  // 排除根路径、ping路径和测试用户创建接口
-  });
-  
-  // 配置静态文件服务
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads',
   });
   
   // 全局验证管道
@@ -40,7 +35,11 @@ async function bootstrap() {
   // 启用CORS
   app.enableCors();
   
-  await app.listen(process.env.PORT || 3000);
-  console.log(`应用程序运行在: ${await app.getUrl()}`);
+  // 获取配置服务
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('app.port');
+  
+  await app.listen(port);
+  console.log(`应用程序运行在: http://[::1]:${port}`);
 }
 bootstrap(); 
