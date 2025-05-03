@@ -1,9 +1,11 @@
+import { IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
 
 export class UpdateNicknameDto {
-  @ApiProperty({ description: '用户昵称', example: '新昵称' })
+  @ApiProperty({ 
+    description: '新昵称', 
+    example: '新测试用户' 
+  })
   @IsString()
-  @IsNotEmpty({ message: '昵称不能为空' })
   nickname: string;
 } 

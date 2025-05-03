@@ -10,7 +10,7 @@ async function bootstrap() {
   
   // 设置API前缀（仅为功能模块添加前缀，保留根路径访问）
   app.setGlobalPrefix('api', {
-    exclude: ['/', '/ping'],  // 排除根路径和ping路径
+    exclude: ['/', '/ping', '/init-test-user'],  // 排除根路径、ping路径和测试用户创建接口
   });
   
   // 配置静态文件服务
@@ -21,9 +21,9 @@ async function bootstrap() {
   // 全局验证管道
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
+      whitelist: false,  // 不剔除未在DTO中声明的属性
       transform: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,  // 不拒绝未在DTO中声明的属性
     }),
   );
   

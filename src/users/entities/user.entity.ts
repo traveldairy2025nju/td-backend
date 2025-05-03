@@ -10,7 +10,7 @@ export class User {
   @ApiProperty({ description: '用户ID' })
   _id: string;
 
-  @ApiProperty({ description: '用户名', example: 'user123' })
+  @ApiProperty({ description: '用户名', example: 'testuser' })
   @Prop({
     required: [true, '用户名不能为空'],
     unique: true,
@@ -19,7 +19,7 @@ export class User {
   })
   username: string;
 
-  @ApiProperty({ description: '密码', example: 'password123' })
+  @ApiProperty({ description: '密码', example: 'test123456' })
   @Prop({
     required: [true, '密码不能为空'],
     minlength: [6, '密码至少需要6个字符'],
@@ -35,7 +35,7 @@ export class User {
 
   @ApiProperty({ description: '用户头像路径', example: '/uploads/images/default-avatar.png' })
   @Prop({
-    default: 'https://via.placeholder.com/150',
+    default: '/uploads/images/default-avatar.png',
   })
   avatar: string;
 
@@ -54,6 +54,11 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+// 添加实例方法
+UserSchema.methods.matchPassword = async function(enteredPassword: string): Promise<boolean> {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 
 // 保存前的中间件 - 密码加密
 UserSchema.pre('save', async function (next) {

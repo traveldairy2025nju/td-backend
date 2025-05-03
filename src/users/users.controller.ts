@@ -21,21 +21,29 @@ export class UsersController {
   ) {}
 
   @Post('register')
-  @ApiOperation({ summary: '用户注册' })
+  @ApiOperation({ 
+    summary: '用户注册', 
+    description: '创建新用户并返回用户信息和JWT令牌。示例用户名: testuser, 密码: test123456'
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
+      required: ['username', 'password', 'nickname'],
       properties: {
         username: { type: 'string', example: 'testuser' },
-        password: { type: 'string', example: 'password123' },
+        password: { type: 'string', example: 'test123456' },
         nickname: { type: 'string', example: '测试用户' },
-        avatar: { type: 'string', format: 'binary' },
+        avatar: { 
+          type: 'string', 
+          format: 'binary',
+          description: '可选的用户头像，如不上传将使用默认头像'
+        },
       },
     },
   })
   @ApiResponse({ status: 201, description: '注册成功' })
-  @ApiResponse({ status: 400, description: '注册失败，用户已存在或数据无效' })
+  @ApiResponse({ status: 400, description: '用户名已被占用' })
   @UseInterceptors(
     FileInterceptor('avatar', {
       fileFilter: imageFileFilter,
@@ -61,7 +69,10 @@ export class UsersController {
   }
 
   @Post('login')
-  @ApiOperation({ summary: '用户登录' })
+  @ApiOperation({ 
+    summary: '用户登录', 
+    description: '使用用户名和密码登录并返回JWT令牌。示例用户名: testuser, 密码: test123456，或使用测试用户: test/test123456'
+  })
   @ApiResponse({ status: 200, description: '登录成功' })
   @ApiResponse({ status: 401, description: '无效的用户名或密码' })
   async login(@Body() loginUserDto: LoginUserDto) {
