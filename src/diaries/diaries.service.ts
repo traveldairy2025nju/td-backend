@@ -10,6 +10,7 @@ import { Like, LikeDocument } from './entities/like.entity';
 import { Comment, CommentDocument } from './entities/comment.entity';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
 
 @Injectable()
 export class DiariesService {
@@ -304,7 +305,7 @@ export class DiariesService {
     diaryId: string, 
     page = 1, 
     limit = 10
-  ): Promise<{ comments: CommentDocument[], total: number, totalPages: number }> {
+  ): Promise<{ comments: CommentWithReplies[], total: number, totalPages: number }> {
     if (!Types.ObjectId.isValid(diaryId)) {
       throw new BadRequestException('无效的游记ID');
     }
@@ -325,22 +326,28 @@ export class DiariesService {
       .skip(skip)
       .limit(limit)
       .populate('user', '_id username nickname avatar')
+      .lean()  // 转换为普通JavaScript对象，便于修改
       .exec();
     
     // 获取子评论
+    const commentResults: CommentWithReplies[] = [];
     for (const comment of comments) {
       const replies = await this.commentModel.find({ 
         parentComment: comment._id 
       })
         .sort({ createdAt: 1 })
         .populate('user', '_id username nickname avatar')
+        .lean()  // 转换为普通JavaScript对象
         .exec();
       
-      (comment as any).replies = replies;
+      // 将回复添加到评论对象中
+      const commentWithReplies = comment as CommentWithReplies;
+      commentWithReplies.replies = replies || [];
+      commentResults.push(commentWithReplies);
     }
     
     return {
-      comments,
+      comments: commentResults,
       total,
       totalPages: Math.ceil(total / limit)
     };

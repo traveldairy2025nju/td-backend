@@ -31,6 +31,7 @@ import { User } from '../users/entities/user.entity';
 import { DiaryStatus } from './entities/diary.entity';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
 
 @ApiTags('游记')
 @Controller('diaries')
@@ -277,7 +278,7 @@ export class DiariesController {
     @Param('id') id: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-  ) {
+  ): Promise<{ success: boolean, data: { items: CommentWithReplies[], total: number, page: number, limit: number, totalPages: number } }> {
     const result = await this.diariesService.getComments(id, page, limit);
     
     return {
