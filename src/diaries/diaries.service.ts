@@ -46,9 +46,13 @@ export class DiariesService {
     // 构建查询条件
     const query: any = { status: DiaryStatus.APPROVED };
     
-    // 关键词搜索
-    if (keyword) {
-      query.$text = { $search: keyword };
+    // 关键词搜索 - 使用正则表达式实现模糊搜索
+    if (keyword && keyword.trim()) {
+      const keywordRegex = new RegExp(keyword, 'i'); // 'i'表示不区分大小写
+      query.$or = [
+        { title: { $regex: keywordRegex } },
+        { content: { $regex: keywordRegex } }
+      ];
     }
     
     // 执行查询
