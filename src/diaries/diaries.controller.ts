@@ -9,7 +9,9 @@ import {
   Query, 
   Put,
   ParseIntPipe,
-  DefaultValuePipe
+  DefaultValuePipe,
+  HttpStatus,
+  HttpCode
 } from '@nestjs/common';
 import { 
   ApiTags, 
@@ -27,6 +29,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { DiaryStatus } from './entities/diary.entity';
+import { CreateLikeDto } from './dto/create-like.dto';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
 
 @ApiTags('游记')
 @Controller('diaries')
@@ -191,6 +196,120 @@ export class DiariesController {
     return {
       success: true,
       message: '游记删除成功'
+    };
+  }
+
+  @Get(':id/with-like-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取游记详情（包含点赞状态）' })
+  @ApiParam({ name: 'id', description: '游记ID' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 404, description: '游记未找到' })
+  async findOneWithLikeStatus(
+    @Param('id') id: string,
+    @GetUser('_id') userId: string
+  ) {
+    const diary = await this.diariesService.findOneWithLikeStatus(id, userId);
+    
+    // 确保_id字段存在
+    const diaryObj = diary.toObject ? diary.toObject() : diary;
+    if (!diaryObj._id && diaryObj.id) {
+      diaryObj._id = diaryObj.id;
+    }
+    
+    return {
+      success: true,
+      data: diaryObj
+    };
+  }
+
+  @Post('like')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '点赞/取消点赞游记' })
+  @ApiBody({ type: CreateLikeDto })
+  @ApiResponse({ status: 200, description: '操作成功' })
+  @ApiResponse({ status: 400, description: '操作失败' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 404, description: '游记未找到' })
+  @HttpCode(HttpStatus.OK)
+  async likeDiary(
+    @Body() createLikeDto: CreateLikeDto,
+    @GetUser() user: User
+  ) {
+    const result = await this.diariesService.likeDiary(createLikeDto, user);
+    return {
+      success: true,
+      message: result.liked ? '点赞成功' : '取消点赞成功',
+      data: result
+    };
+  }
+
+  @Post('comment')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '添加评论' })
+  @ApiBody({ type: CreateCommentDto })
+  @ApiResponse({ status: 201, description: '评论成功' })
+  @ApiResponse({ status: 400, description: '评论失败' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 404, description: '游记未找到' })
+  async addComment(
+    @Body() createCommentDto: CreateCommentDto,
+    @GetUser() user: User
+  ) {
+    const comment = await this.diariesService.addComment(createCommentDto, user);
+    return {
+      success: true,
+      message: '评论成功',
+      data: comment
+    };
+  }
+
+  @Get(':id/comments')
+  @ApiOperation({ summary: '获取游记评论' })
+  @ApiParam({ name: 'id', description: '游记ID' })
+  @ApiQuery({ name: 'page', type: Number, required: false, description: '页码' })
+  @ApiQuery({ name: 'limit', type: Number, required: false, description: '每页数量' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 404, description: '游记未找到' })
+  async getComments(
+    @Param('id') id: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ): Promise<{ success: boolean, data: { items: CommentWithReplies[], total: number, page: number, limit: number, totalPages: number } }> {
+    const result = await this.diariesService.getComments(id, page, limit);
+    
+    return {
+      success: true,
+      data: {
+        items: result.comments,
+        total: result.total,
+        page,
+        limit,
+        totalPages: result.totalPages
+      }
+    };
+  }
+
+  @Delete('comment/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '删除评论' })
+  @ApiParam({ name: 'id', description: '评论ID' })
+  @ApiResponse({ status: 200, description: '删除成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权删除此评论' })
+  @ApiResponse({ status: 404, description: '评论未找到' })
+  async removeComment(
+    @Param('id') id: string,
+    @GetUser('_id') userId: string
+  ) {
+    await this.diariesService.removeComment(id, userId);
+    return {
+      success: true,
+      message: '评论删除成功'
     };
   }
 } 
