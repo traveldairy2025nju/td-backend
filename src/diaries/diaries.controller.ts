@@ -48,7 +48,7 @@ export class DiariesController {
     const diary = await this.diariesService.create(createDiaryDto, user);
     return {
       success: true,
-      message: '游记创建成功，等待审核',
+      message: '游记创建成功，已自动审核通过（开发模式）',
       data: diary,
     };
   }
@@ -65,10 +65,20 @@ export class DiariesController {
     @Query('keyword') keyword?: string,
   ) {
     const result = await this.diariesService.findAllApproved(page, limit, keyword);
+    
+    // 确保每个游记的_id字段存在
+    const transformedDiaries = result.diaries.map(diary => {
+      const diaryObj = diary.toObject ? diary.toObject() : diary;
+      if (!diaryObj._id && diaryObj.id) {
+        diaryObj._id = diaryObj.id;
+      }
+      return diaryObj;
+    });
+    
     return {
       success: true,
       data: {
-        items: result.diaries,
+        items: transformedDiaries,
         total: result.total,
         page,
         limit,
@@ -98,10 +108,20 @@ export class DiariesController {
     @Query('status') status?: DiaryStatus,
   ) {
     const result = await this.diariesService.findUserDiaries(userId, page, limit, status);
+    
+    // 确保每个游记的_id字段存在
+    const transformedDiaries = result.diaries.map(diary => {
+      const diaryObj = diary.toObject ? diary.toObject() : diary;
+      if (!diaryObj._id && diaryObj.id) {
+        diaryObj._id = diaryObj.id;
+      }
+      return diaryObj;
+    });
+    
     return {
       success: true,
       data: {
-        items: result.diaries,
+        items: transformedDiaries,
         total: result.total,
         page,
         limit,
@@ -117,9 +137,16 @@ export class DiariesController {
   @ApiResponse({ status: 404, description: '游记未找到' })
   async findOne(@Param('id') id: string) {
     const diary = await this.diariesService.findOne(id);
+    
+    // 确保_id字段存在
+    const diaryObj = diary.toObject ? diary.toObject() : diary;
+    if (!diaryObj._id && diaryObj.id) {
+      diaryObj._id = diaryObj.id;
+    }
+    
     return {
       success: true,
-      data: diary
+      data: diaryObj
     };
   }
 
@@ -130,7 +157,7 @@ export class DiariesController {
   @ApiParam({ name: 'id', description: '游记ID' })
   @ApiBody({ type: UpdateDiaryDto })
   @ApiResponse({ status: 200, description: '更新成功' })
-  @ApiResponse({ status: 400, description: '更新失败，已审核通过的游记不能再次编辑' })
+  @ApiResponse({ status: 400, description: '更新失败' })
   @ApiResponse({ status: 401, description: '未授权' })
   @ApiResponse({ status: 403, description: '无权更新此游记' })
   @ApiResponse({ status: 404, description: '游记未找到' })
@@ -142,7 +169,7 @@ export class DiariesController {
     const diary = await this.diariesService.update(id, updateDiaryDto, userId);
     return {
       success: true,
-      message: '游记更新成功，等待审核',
+      message: '游记更新成功，保持原有审核状态（开发模式）',
       data: diary
     };
   }

@@ -16,14 +16,15 @@ export class DiariesService {
 
   async create(createDiaryDto: CreateDiaryDto, author: User): Promise<DiaryDocument> {
     try {
-      // 创建新日记
+      // 创建新日记（开发模式下默认为已审核通过）
       const newDiary = new this.diaryModel({
         title: createDiaryDto.title,
         content: createDiaryDto.content,
         images: createDiaryDto.images,
         video: createDiaryDto.videoUrl || null,
         author: author._id,
-        status: DiaryStatus.PENDING,
+        status: DiaryStatus.APPROVED, // 默认为已审核通过，方便调试
+        approvedAt: new Date(), // 添加审核通过时间
       });
 
       return await newDiary.save();
@@ -56,7 +57,8 @@ export class DiariesService {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('author', 'username nickname avatar')
+      .select('_id title content images video author status approvedAt createdAt updatedAt')
+      .populate('author', '_id username nickname avatar')
       .exec();
       
     return {
@@ -72,8 +74,9 @@ export class DiariesService {
     }
     
     const diary = await this.diaryModel.findById(id)
-      .populate('author', 'username nickname avatar')
-      .populate('reviewedBy', 'username nickname')
+      .select('_id title content images video author status rejectReason approvedAt reviewedBy createdAt updatedAt')
+      .populate('author', '_id username nickname avatar')
+      .populate('reviewedBy', '_id username nickname')
       .exec();
       
     if (!diary) {
@@ -100,10 +103,18 @@ export class DiariesService {
       throw new ForbiddenException('无权更新此日记');
     }
     
+    // 开发模式：允许更新已审核通过的游记，注释掉以下限制检查
+    /*
     // 检查状态
     if (diary.status === DiaryStatus.APPROVED) {
       throw new BadRequestException('已审核通过的日记不能再次编辑');
     }
+    */
+    
+    // 保存原状态，开发模式下保持状态不变
+    const originalStatus = diary.status;
+    const originalApprovedAt = diary.approvedAt;
+    const originalReviewedBy = diary.reviewedBy;
     
     // 更新日记
     const updatedDiary = await this.diaryModel.findByIdAndUpdate(
@@ -113,10 +124,11 @@ export class DiariesService {
         content: updateDiaryDto.content || diary.content,
         images: updateDiaryDto.images || diary.images,
         video: updateDiaryDto.videoUrl !== undefined ? updateDiaryDto.videoUrl : diary.video,
-        status: DiaryStatus.PENDING, // 重新设置为待审核
+        // 保持原状态，不重置为pending
+        status: originalStatus,
         rejectReason: null, // 清除拒绝原因
-        reviewedBy: null, // 清除审核人
-        approvedAt: null, // 清除审核通过时间
+        reviewedBy: originalReviewedBy,
+        approvedAt: originalApprovedAt,
       },
       { new: true }
     ).populate('author', 'username nickname avatar');
@@ -161,6 +173,7 @@ export class DiariesService {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
+      .select('_id title content images video status rejectReason approvedAt createdAt updatedAt')
       .exec();
       
     return {

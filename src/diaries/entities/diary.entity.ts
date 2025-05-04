@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { User } from '../../users/entities/user.entity';
+import { ApiProperty } from '@nestjs/swagger';
 
 export type DiaryDocument = Diary & Document;
 
@@ -12,18 +13,26 @@ export enum DiaryStatus {
 
 @Schema({ timestamps: true })
 export class Diary {
+  @ApiProperty({ description: '游记ID' })
+  _id: string;
+
+  @ApiProperty({ description: '游记标题' })
   @Prop({ required: true })
   title: string;
 
+  @ApiProperty({ description: '游记内容' })
   @Prop({ required: true })
   content: string;
 
+  @ApiProperty({ description: '游记图片', type: [String] })
   @Prop({ type: [String], default: [] })
   images: string[];
 
+  @ApiProperty({ description: '视频链接', required: false })
   @Prop({ type: String, default: null })
   video: string;
 
+  @ApiProperty({ description: '作者ID' })
   @Prop({ 
     type: MongooseSchema.Types.ObjectId, 
     ref: 'User', 
@@ -31,6 +40,7 @@ export class Diary {
   })
   author: User;
 
+  @ApiProperty({ description: '状态', enum: DiaryStatus })
   @Prop({
     type: String,
     enum: Object.values(DiaryStatus),
@@ -38,18 +48,27 @@ export class Diary {
   })
   status: DiaryStatus;
 
+  @ApiProperty({ description: '拒绝原因', required: false })
   @Prop({ type: String, default: null })
   rejectReason: string;
 
+  @ApiProperty({ description: '审核通过时间', required: false })
   @Prop({ type: Date, default: null })
   approvedAt: Date;
 
+  @ApiProperty({ description: '审核人ID', required: false })
   @Prop({ 
     type: MongooseSchema.Types.ObjectId, 
     ref: 'User', 
     default: null 
   })
   reviewedBy: User;
+
+  @ApiProperty({ description: '创建时间' })
+  createdAt: Date;
+
+  @ApiProperty({ description: '更新时间' })
+  updatedAt: Date;
 }
 
 export const DiarySchema = SchemaFactory.createForClass(Diary);
