@@ -29,15 +29,15 @@ export class DiariesService {
 
   async create(createDiaryDto: CreateDiaryDto, author: User): Promise<DiaryDocument> {
     try {
-      // 创建新日记（开发模式下默认为已审核通过）
+      // 创建新日记（状态为待审核）
       const newDiary = new this.diaryModel({
         title: createDiaryDto.title,
         content: createDiaryDto.content,
         images: createDiaryDto.images,
-        video: createDiaryDto.videoUrl || null,
+        video: createDiaryDto.videoUrl || createDiaryDto.video || null,
         author: author._id,
-        status: DiaryStatus.APPROVED, // 默认为已审核通过，方便调试
-        approvedAt: new Date(), // 添加审核通过时间
+        status: DiaryStatus.PENDING, // 修改为待审核状态
+        approvedAt: null, // 清空审核时间
       });
 
       return await newDiary.save();
