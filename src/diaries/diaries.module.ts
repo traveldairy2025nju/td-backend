@@ -8,6 +8,7 @@ import { Diary, DiarySchema } from './entities/diary.entity';
 import { MinioModule } from '../minio/minio.module';
 import { Like, LikeSchema } from './entities/like.entity';
 import { Comment, CommentSchema } from './entities/comment.entity';
+import { CommentLike, CommentLikeSchema } from './entities/comment-like.entity';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { Comment, CommentSchema } from './entities/comment.entity';
       { name: Diary.name, schema: DiarySchema },
       { name: Like.name, schema: LikeSchema },
       { name: Comment.name, schema: CommentSchema },
+      { name: CommentLike.name, schema: CommentLikeSchema },
     ]),
     MulterModule.register({
       storage: memoryStorage(),

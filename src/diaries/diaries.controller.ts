@@ -31,6 +31,7 @@ import { User } from '../users/entities/user.entity';
 import { DiaryStatus } from './entities/diary.entity';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { CreateCommentLikeDto } from './dto/create-comment-like.dto';
 import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
 
 @ApiTags('游记')
@@ -358,6 +359,57 @@ export class DiariesController {
     return {
       success: true,
       message: '评论删除成功'
+    };
+  }
+
+  @Post('comment/like')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '点赞/取消点赞评论' })
+  @ApiBody({ type: CreateCommentLikeDto })
+  @ApiResponse({ status: 200, description: '操作成功' })
+  @ApiResponse({ status: 400, description: '操作失败' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 404, description: '评论未找到' })
+  @HttpCode(HttpStatus.OK)
+  async likeComment(
+    @Body() createCommentLikeDto: CreateCommentLikeDto,
+    @GetUser() user: User
+  ) {
+    const result = await this.diariesService.likeComment(createCommentLikeDto, user);
+    return {
+      success: true,
+      message: result.liked ? '评论点赞成功' : '取消评论点赞成功',
+      data: result
+    };
+  }
+
+  @Get(':id/comments-with-like-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取游记评论（包含点赞状态）' })
+  @ApiParam({ name: 'id', description: '游记ID' })
+  @ApiQuery({ name: 'page', type: Number, required: false, description: '页码' })
+  @ApiQuery({ name: 'limit', type: Number, required: false, description: '每页数量' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 404, description: '游记未找到' })
+  async getCommentsWithLikeStatus(
+    @Param('id') id: string,
+    @GetUser('_id') userId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    const result = await this.diariesService.getCommentsWithLikeStatus(id, userId, page, limit);
+    
+    return {
+      success: true,
+      data: {
+        items: result.comments,
+        total: result.total,
+        page,
+        limit,
+        totalPages: result.totalPages
+      }
     };
   }
 } 

@@ -8,6 +8,7 @@ import { User } from '../users/entities/user.entity';
 import { MinioUtil } from '../utils/minio.utils';
 import { Like, LikeDocument } from './entities/like.entity';
 import { Comment, CommentDocument } from './entities/comment.entity';
+import { CommentLike, CommentLikeDocument } from './entities/comment-like.entity';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
@@ -18,6 +19,7 @@ export class DiariesService {
     @InjectModel(Diary.name) private diaryModel: Model<DiaryDocument>,
     @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
+    @InjectModel(CommentLike.name) private commentLikeModel: Model<CommentLikeDocument>,
     private readonly minioUtil: MinioUtil,
   ) {}
 
@@ -284,26 +286,26 @@ export class DiariesService {
   // 点赞功能
   async likeDiary(createLikeDto: CreateLikeDto, user: User): Promise<{ liked: boolean }> {
     const { diaryId } = createLikeDto;
-
+    
     if (!Types.ObjectId.isValid(diaryId)) {
       throw new BadRequestException('无效的游记ID');
     }
-
+    
     const diary = await this.diaryModel.findById(diaryId);
     if (!diary) {
       throw new NotFoundException('游记不存在');
     }
-
+    
     if (diary.status !== DiaryStatus.APPROVED) {
       throw new BadRequestException('只能点赞已审核通过的游记');
     }
-
+    
     // 检查用户是否已经点赞
-    const existingLike = await this.likeModel.findOne({
-      diary: diaryId,
-      user: user._id
+    const existingLike = await this.likeModel.findOne({ 
+      diary: diaryId, 
+      user: user._id 
     });
-
+    
     // 如果已点赞，则取消点赞
     if (existingLike) {
       await this.likeModel.findByIdAndDelete(existingLike._id);
@@ -311,69 +313,69 @@ export class DiariesService {
       await this.diaryModel.findByIdAndUpdate(diaryId, { $inc: { likeCount: -1 } });
       return { liked: false };
     }
-
+    
     // 如果未点赞，则添加点赞
     const newLike = new this.likeModel({
       diary: diaryId,
       user: user._id
     });
-
+    
     await newLike.save();
-
+    
     // 更新点赞数量
     await this.diaryModel.findByIdAndUpdate(diaryId, { $inc: { likeCount: 1 } });
-
+    
     return { liked: true };
   }
-
+  
   // 获取用户是否已点赞
   async getUserLikeStatus(diaryId: string, userId: string): Promise<boolean> {
     if (!Types.ObjectId.isValid(diaryId)) {
       throw new BadRequestException('无效的游记ID');
     }
-
-    const existingLike = await this.likeModel.findOne({
-      diary: diaryId,
-      user: userId
+    
+    const existingLike = await this.likeModel.findOne({ 
+      diary: diaryId, 
+      user: userId 
     });
-
+    
     return !!existingLike;
   }
-
+  
   // 添加评论
   async addComment(createCommentDto: CreateCommentDto, user: User): Promise<CommentDocument> {
     const { diaryId, content, parentCommentId } = createCommentDto;
-
+    
     if (!Types.ObjectId.isValid(diaryId)) {
       throw new BadRequestException('无效的游记ID');
     }
-
+    
     const diary = await this.diaryModel.findById(diaryId);
     if (!diary) {
       throw new NotFoundException('游记不存在');
     }
-
+    
     if (diary.status !== DiaryStatus.APPROVED) {
       throw new BadRequestException('只能评论已审核通过的游记');
     }
-
+    
     // 如果有父评论，需要验证父评论是否存在
     if (parentCommentId) {
       if (!Types.ObjectId.isValid(parentCommentId)) {
         throw new BadRequestException('无效的父评论ID');
       }
-
+      
       const parentComment = await this.commentModel.findById(parentCommentId);
       if (!parentComment) {
         throw new NotFoundException('父评论不存在');
       }
-
+      
       // 检查父评论是否属于同一个游记
       if (parentComment.diary.toString() !== diaryId) {
         throw new BadRequestException('父评论不属于该游记');
       }
     }
-
+    
     // 创建新评论
     const newComment = new this.commentModel({
       diary: diaryId,
@@ -381,22 +383,178 @@ export class DiariesService {
       content,
       parentComment: parentCommentId || null
     });
-
+    
     const savedComment = await newComment.save();
-
+    
     // 更新评论数量
     await this.diaryModel.findByIdAndUpdate(diaryId, { $inc: { commentCount: 1 } });
-
+    
     return await this.commentModel.findById(savedComment._id)
       .populate('user', '_id username nickname avatar');
   }
-
+  
   // 获取游记评论
   async getComments(
-    diaryId: string,
-    page = 1,
+    diaryId: string, 
+    page = 1, 
     limit = 10
   ): Promise<{ comments: CommentWithReplies[], total: number, totalPages: number }> {
+    if (!Types.ObjectId.isValid(diaryId)) {
+      throw new BadRequestException('无效的游记ID');
+    }
+    
+    const skip = (page - 1) * limit;
+    
+    // 获取顶级评论（没有父评论的评论）
+    const total = await this.commentModel.countDocuments({ 
+      diary: diaryId,
+      parentComment: null
+    });
+    
+    const comments = await this.commentModel.find({ 
+      diary: diaryId,
+      parentComment: null
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('user', '_id username nickname avatar')
+      .lean()  // 转换为普通JavaScript对象，便于修改
+      .exec();
+    
+    // 获取子评论
+    const commentResults: CommentWithReplies[] = [];
+    for (const comment of comments) {
+      const replies = await this.commentModel.find({ 
+        parentComment: comment._id 
+      })
+        .sort({ createdAt: 1 })
+        .populate('user', '_id username nickname avatar')
+        .lean()  // 转换为普通JavaScript对象
+        .exec();
+      
+      // 将回复添加到评论对象中
+      const commentWithReplies = comment as CommentWithReplies;
+      commentWithReplies.replies = replies || [];
+      commentResults.push(commentWithReplies);
+    }
+    
+    return {
+      comments: commentResults,
+      total,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+  
+  // 删除评论
+  async removeComment(commentId: string, userId: string, isAdmin = false): Promise<void> {
+    if (!Types.ObjectId.isValid(commentId)) {
+      throw new BadRequestException('无效的评论ID');
+    }
+    
+    const comment = await this.commentModel.findById(commentId);
+    if (!comment) {
+      throw new NotFoundException('评论不存在');
+    }
+    
+    // 检查权限，只有评论作者或管理员可以删除
+    if (!isAdmin && comment.user.toString() !== userId) {
+      throw new ForbiddenException('无权删除此评论');
+    }
+    
+    const diaryId = comment.diary;
+    
+    // 找出并删除所有子评论
+    const childComments = await this.commentModel.find({ parentComment: commentId });
+    const childCount = childComments.length;
+    
+    // 删除子评论
+    await this.commentModel.deleteMany({ parentComment: commentId });
+    
+    // 删除当前评论
+    await this.commentModel.findByIdAndDelete(commentId);
+    
+    // 更新评论计数（减去自身和所有子评论）
+    await this.diaryModel.findByIdAndUpdate(diaryId, { 
+      $inc: { commentCount: -(childCount + 1) } 
+    });
+  }
+
+  // 扩展findOne方法，包含点赞状态
+  async findOneWithLikeStatus(id: string, userId?: string): Promise<DiaryDocument & { isLiked?: boolean }> {
+    const diary = await this.findOne(id);
+    
+    // 如果提供了用户ID，则检查用户是否已点赞
+    if (userId) {
+      const isLiked = await this.getUserLikeStatus(id, userId);
+      return { ...diary.toObject(), isLiked };
+    }
+    
+    return diary;
+  }
+
+  // 评论点赞功能
+  async likeComment(createCommentLikeDto: CreateCommentLikeDto, user: User): Promise<{ liked: boolean }> {
+    const { commentId } = createCommentLikeDto;
+
+    if (!Types.ObjectId.isValid(commentId)) {
+      throw new BadRequestException('无效的评论ID');
+    }
+
+    const comment = await this.commentModel.findById(commentId);
+    if (!comment) {
+      throw new NotFoundException('评论不存在');
+    }
+
+    // 检查用户是否已经点赞
+    const existingLike = await this.commentLikeModel.findOne({
+      comment: commentId,
+      user: user._id
+    });
+
+    // 如果已点赞，则取消点赞
+    if (existingLike) {
+      await this.commentLikeModel.findByIdAndDelete(existingLike._id);
+      // 更新点赞数量
+      await this.commentModel.findByIdAndUpdate(commentId, { $inc: { likeCount: -1 } });
+      return { liked: false };
+    }
+
+    // 如果未点赞，则添加点赞
+    const newLike = new this.commentLikeModel({
+      comment: commentId,
+      user: user._id
+    });
+
+    await newLike.save();
+
+    // 更新点赞数量
+    await this.commentModel.findByIdAndUpdate(commentId, { $inc: { likeCount: 1 } });
+
+    return { liked: true };
+  }
+
+  // 获取用户是否已点赞评论
+  async getUserCommentLikeStatus(commentId: string, userId: string): Promise<boolean> {
+    if (!Types.ObjectId.isValid(commentId)) {
+      throw new BadRequestException('无效的评论ID');
+    }
+
+    const existingLike = await this.commentLikeModel.findOne({
+      comment: commentId,
+      user: userId
+    });
+
+    return !!existingLike;
+  }
+
+  // 扩展getComments方法，包含点赞状态
+  async getCommentsWithLikeStatus(
+    diaryId: string,
+    userId: string | null,
+    page = 1,
+    limit = 10
+  ): Promise<{ comments: (CommentWithReplies & { isLiked?: boolean })[], total: number, totalPages: number }> {
     if (!Types.ObjectId.isValid(diaryId)) {
       throw new BadRequestException('无效的游记ID');
     }
@@ -420,8 +578,9 @@ export class DiariesService {
       .lean()  // 转换为普通JavaScript对象，便于修改
       .exec();
 
-    // 获取子评论
-    const commentResults: CommentWithReplies[] = [];
+    // 获取子评论并添加点赞状态
+    const commentResults: (CommentWithReplies & { isLiked?: boolean })[] = [];
+
     for (const comment of comments) {
       const replies = await this.commentModel.find({
         parentComment: comment._id
@@ -431,9 +590,33 @@ export class DiariesService {
         .lean()  // 转换为普通JavaScript对象
         .exec();
 
+      // 如果提供了用户ID，添加点赞状态
+      let isCommentLiked = false;
+      if (userId) {
+        isCommentLiked = await this.getUserCommentLikeStatus(comment._id.toString(), userId);
+      }
+
+      // 获取子评论的点赞状态
+      const repliesWithLikeStatus = [];
+      if (userId) {
+        for (const reply of replies) {
+          const isReplyLiked = await this.getUserCommentLikeStatus(reply._id.toString(), userId);
+          repliesWithLikeStatus.push({
+            ...reply,
+            isLiked: isReplyLiked
+          });
+        }
+      } else {
+        repliesWithLikeStatus.push(...replies);
+      }
+
       // 将回复添加到评论对象中
-      const commentWithReplies = comment as CommentWithReplies;
-      commentWithReplies.replies = replies || [];
+      const commentWithReplies = {
+        ...comment,
+        isLiked: isCommentLiked,
+        replies: repliesWithLikeStatus || []
+      };
+
       commentResults.push(commentWithReplies);
     }
 
@@ -442,52 +625,5 @@ export class DiariesService {
       total,
       totalPages: Math.ceil(total / limit)
     };
-  }
-
-  // 删除评论
-  async removeComment(commentId: string, userId: string, isAdmin = false): Promise<void> {
-    if (!Types.ObjectId.isValid(commentId)) {
-      throw new BadRequestException('无效的评论ID');
-    }
-
-    const comment = await this.commentModel.findById(commentId);
-    if (!comment) {
-      throw new NotFoundException('评论不存在');
-    }
-
-    // 检查权限，只有评论作者或管理员可以删除
-    if (!isAdmin && comment.user.toString() !== userId) {
-      throw new ForbiddenException('无权删除此评论');
-    }
-
-    const diaryId = comment.diary;
-
-    // 找出并删除所有子评论
-    const childComments = await this.commentModel.find({ parentComment: commentId });
-    const childCount = childComments.length;
-
-    // 删除子评论
-    await this.commentModel.deleteMany({ parentComment: commentId });
-
-    // 删除当前评论
-    await this.commentModel.findByIdAndDelete(commentId);
-
-    // 更新评论计数（减去自身和所有子评论）
-    await this.diaryModel.findByIdAndUpdate(diaryId, {
-      $inc: { commentCount: -(childCount + 1) }
-    });
-  }
-
-  // 扩展findOne方法，包含点赞状态
-  async findOneWithLikeStatus(id: string, userId?: string): Promise<DiaryDocument & { isLiked?: boolean }> {
-    const diary = await this.findOne(id);
-
-    // 如果提供了用户ID，则检查用户是否已点赞
-    if (userId) {
-      const isLiked = await this.getUserLikeStatus(id, userId);
-      return { ...diary.toObject(), isLiked };
-    }
-
-    return diary;
   }
 }
