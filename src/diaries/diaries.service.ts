@@ -182,4 +182,91 @@ export class DiariesService {
       totalPages: Math.ceil(total / limit)
     };
   }
+
+  async search(
+    keyword: string,
+    page = 1, 
+    limit = 10, 
+  ): Promise<{ diaries: DiaryDocument[], total: number, totalPages: number }> {
+    const skip = (page - 1) * limit;
+    
+    // 构建查询条件 - 只搜索已审核通过的游记
+    const baseQuery = { status: DiaryStatus.APPROVED };
+    
+    // 聚合管道查询
+    const aggregate = this.diaryModel.aggregate([
+      // 第一步：匹配已审核通过的游记
+      { $match: baseQuery },
+      
+      // 第二步：关联作者信息
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'author',
+          foreignField: '_id',
+          as: 'authorInfo'
+        }
+      },
+      
+      // 第三步：展开作者信息数组
+      { $unwind: '$authorInfo' },
+      
+      // 第四步：匹配关键词（标题、内容或作者昵称）
+      {
+        $match: {
+          $or: [
+            { title: { $regex: keyword, $options: 'i' } },
+            { content: { $regex: keyword, $options: 'i' } },
+            { 'authorInfo.nickname': { $regex: keyword, $options: 'i' } }
+          ]
+        }
+      },
+      
+      // 第五步：添加排序
+      { $sort: { createdAt: -1 } },
+      
+      // 第六步：计算总数（在分页前）
+      {
+        $facet: {
+          metadata: [{ $count: 'total' }],
+          data: [
+            { $skip: skip },
+            { $limit: limit },
+            // 格式化输出结果，保持与其他查询方法一致的字段结构
+            {
+              $project: {
+                _id: 1,
+                title: 1,
+                content: 1,
+                images: 1,
+                video: 1,
+                status: 1,
+                approvedAt: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                author: {
+                  _id: '$authorInfo._id',
+                  username: '$authorInfo.username',
+                  nickname: '$authorInfo.nickname',
+                  avatar: '$authorInfo.avatar'
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+    
+    const result = await aggregate.exec();
+    
+    // 处理结果
+    const total = result[0].metadata[0]?.total || 0;
+    const diaries = result[0].data || [];
+    
+    return {
+      diaries,
+      total,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
 } 
