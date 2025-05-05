@@ -137,6 +137,43 @@ export class DiariesController {
     };
   }
 
+  @Get('rejected')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取已拒绝的游记列表' })
+  @ApiQuery({ name: 'page', type: Number, required: false, description: '页码' })
+  @ApiQuery({ name: 'limit', type: Number, required: false, description: '每页数量' })
+  @ApiQuery({ name: 'keyword', type: String, required: false, description: '搜索关键词' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  async findAllRejected(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('keyword') keyword?: string,
+  ) {
+    const result = await this.diariesService.findAllRejected(page, limit, keyword);
+    
+    // 确保每个游记的_id字段存在
+    const transformedDiaries = result.diaries.map(diary => {
+      const diaryObj = diary.toObject ? diary.toObject() : diary;
+      if (!diaryObj._id && diaryObj.id) {
+        diaryObj._id = diaryObj.id;
+      }
+      return diaryObj;
+    });
+    
+    return {
+      success: true,
+      data: {
+        items: transformedDiaries,
+        total: result.total,
+        page,
+        limit,
+        totalPages: result.totalPages
+      }
+    };
+  }
+
   @Get('search')
   @ApiOperation({ summary: '搜索游记' })
   @ApiQuery({ name: 'keyword', required: true, description: '搜索关键词，支持标题、内容、作者昵称' })

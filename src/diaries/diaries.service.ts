@@ -85,6 +85,42 @@ export class DiariesService {
     };
   }
 
+  async findAllRejected(
+    page = 1, 
+    limit = 10, 
+    keyword?: string
+  ): Promise<{ diaries: DiaryDocument[], total: number, totalPages: number }> {
+    const skip = (page - 1) * limit;
+    
+    // 构建查询条件
+    const query: any = { status: DiaryStatus.REJECTED };
+    
+    // 关键词搜索 - 使用正则表达式实现模糊搜索
+    if (keyword && keyword.trim()) {
+      const keywordRegex = new RegExp(keyword, 'i'); // 'i'表示不区分大小写
+      query.$or = [
+        { title: { $regex: keywordRegex } },
+        { content: { $regex: keywordRegex } }
+      ];
+    }
+    
+    // 执行查询
+    const total = await this.diaryModel.countDocuments(query);
+    const diaries = await this.diaryModel.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('_id title content images video author status rejectReason likeCount commentCount createdAt updatedAt')
+      .populate('author', '_id username nickname avatar')
+      .exec();
+      
+    return {
+      diaries,
+      total,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
   async findOne(id: string): Promise<DiaryDocument> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('无效的日记ID');
