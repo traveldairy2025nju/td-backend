@@ -4,9 +4,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
+import { json } from 'express';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: ['log', 'error', 'warn', 'debug', 'verbose'],
+  });
   
   // 设置API前缀
   app.setGlobalPrefix('api');
@@ -14,9 +17,8 @@ async function bootstrap() {
   // 全局验证管道
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: false,  // 不剔除未在DTO中声明的属性
+      whitelist: true,  // 不剔除未在DTO中声明的属性
       transform: true,
-      forbidNonWhitelisted: false,  // 不拒绝未在DTO中声明的属性
     }),
   );
   
@@ -42,6 +44,17 @@ async function bootstrap() {
   // 获取配置服务
   const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port');
+  
+  // 增加请求体大小限制
+  app.use(json({ limit: '50mb' }));
+  
+  // 设置全局请求超时时间为 120 秒
+  app.use((req, res, next) => {
+    res.setTimeout(120000, () => {
+      res.status(408).send('请求超时');
+    });
+    next();
+  });
   
   await app.listen(port);
   console.log(`应用程序运行在: http://[::1]:${port}`);

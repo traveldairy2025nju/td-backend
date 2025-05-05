@@ -5,6 +5,7 @@ import { User, UserSchema } from '../users/entities/user.entity';
 import { Diary, DiarySchema } from '../diaries/entities/diary.entity';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AiReviewService } from '../common/services/ai-review.service';
 
 @Module({
   imports: [
@@ -15,6 +16,6 @@ import { AdminService } from './admin.service';
     DiariesModule,
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, AiReviewService],
 })
 export class AdminModule {} 
