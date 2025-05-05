@@ -39,6 +39,10 @@ export class Comment {
   })
   parentComment: Comment;
 
+  @ApiProperty({ description: '点赞数' })
+  @Prop({ type: Number, default: 0 })
+  likeCount: number;
+
   @ApiProperty({ description: '创建时间' })
   createdAt: Date;
 
