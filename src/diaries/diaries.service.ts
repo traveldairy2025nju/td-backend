@@ -13,6 +13,8 @@ import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CreateCommentLikeDto } from './dto/create-comment-like.dto';
 import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
+import { Favorite, FavoriteDocument } from './entities/favorite.entity';
+import { CreateFavoriteDto } from './dto/create-favorite.dto';
 
 @Injectable()
 export class DiariesService {
@@ -21,6 +23,7 @@ export class DiariesService {
     @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
     @InjectModel(CommentLike.name) private commentLikeModel: Model<CommentLikeDocument>,
+    @InjectModel(Favorite.name) private favoriteModel: Model<FavoriteDocument>,
     private readonly minioUtil: MinioUtil,
   ) {}
 
@@ -641,5 +644,146 @@ export class DiariesService {
       total,
       totalPages: Math.ceil(total / limit)
     };
+  }
+
+  // 收藏游记
+  async favoriteDiary(createFavoriteDto: CreateFavoriteDto, user: User): Promise<{ favorited: boolean }> {
+    const { diaryId } = createFavoriteDto;
+    
+    if (!Types.ObjectId.isValid(diaryId)) {
+      throw new BadRequestException('无效的游记ID');
+    }
+    
+    const diary = await this.diaryModel.findById(diaryId);
+    if (!diary) {
+      throw new NotFoundException('游记不存在');
+    }
+    
+    if (diary.status !== DiaryStatus.APPROVED) {
+      throw new BadRequestException('只能收藏已审核通过的游记');
+    }
+    
+    // 检查用户是否已经收藏
+    const existingFavorite = await this.favoriteModel.findOne({ 
+      diary: diaryId, 
+      user: user._id 
+    });
+    
+    // 如果已收藏，则取消收藏
+    if (existingFavorite) {
+      await this.favoriteModel.findByIdAndDelete(existingFavorite._id);
+      // 更新收藏数量
+      await this.diaryModel.findByIdAndUpdate(diaryId, { $inc: { favoriteCount: -1 } });
+      return { favorited: false };
+    }
+    
+    // 如果未收藏，则添加收藏
+    const newFavorite = new this.favoriteModel({
+      diary: diaryId,
+      user: user._id
+    });
+    
+    await newFavorite.save();
+    
+    // 更新收藏数量
+    await this.diaryModel.findByIdAndUpdate(diaryId, { $inc: { favoriteCount: 1 } });
+    
+    return { favorited: true };
+  }
+  
+  // 获取用户是否已收藏
+  async getUserFavoriteStatus(diaryId: string, userId: string): Promise<boolean> {
+    if (!Types.ObjectId.isValid(diaryId)) {
+      throw new BadRequestException('无效的游记ID');
+    }
+    
+    const existingFavorite = await this.favoriteModel.findOne({ 
+      diary: diaryId, 
+      user: userId 
+    });
+    
+    return !!existingFavorite;
+  }
+  
+  // 获取用户收藏的所有游记
+  async getUserFavorites(
+    userId: string,
+    page = 1,
+    limit = 10
+  ): Promise<{ diaries: any[], total: number, totalPages: number }> {
+    console.log('获取用户收藏列表，用户ID:', userId);
+    
+    if (!userId) {
+      throw new BadRequestException('用户ID不能为空');
+    }
+    
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('无效的用户ID');
+    }
+    
+    try {
+      const skip = (page - 1) * limit;
+      
+      // 查找用户的所有收藏
+      const favoriteEntries = await this.favoriteModel.find({ user: userId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate({
+          path: 'diary',
+          match: { status: DiaryStatus.APPROVED }, // 只返回已审核通过的游记
+          populate: {
+            path: 'author',
+            select: '_id username nickname avatar'
+          }
+        })
+        .exec();
+      
+      // 提取游记并过滤掉可能已删除的游记（diary为null的情况）
+      const diaries = favoriteEntries
+        .map(favorite => favorite.diary)
+        .filter(diary => diary !== null);
+      
+      // 获取总收藏数
+      const total = await this.favoriteModel.countDocuments({
+        user: userId
+      });
+      
+      return {
+        diaries,
+        total,
+        totalPages: Math.ceil(total / limit)
+      };
+    } catch (error) {
+      console.error('获取收藏列表错误:', error);
+      throw new BadRequestException('获取收藏列表失败: ' + error.message);
+    }
+  }
+
+  // 扩展findOne方法，包含点赞和收藏状态
+  async findOneWithUserStatus(id: string, userId?: string): Promise<any> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('无效的日记ID');
+    }
+    
+    const diary = await this.diaryModel.findById(id)
+      .select('_id title content images video author status rejectReason approvedAt reviewedBy likeCount commentCount favoriteCount createdAt updatedAt')
+      .populate('author', '_id username nickname avatar')
+      .populate('reviewedBy', '_id username nickname')
+      .exec();
+      
+    if (!diary) {
+      throw new NotFoundException('日记未找到');
+    }
+    
+    // 如果提供了用户ID，则检查用户是否已点赞和收藏
+    if (userId) {
+      const isLiked = await this.getUserLikeStatus(id, userId);
+      const isFavorited = await this.getUserFavoriteStatus(id, userId);
+      const diaryObj = diary.toObject();
+      return { ...diaryObj, isLiked, isFavorited };
+    }
+    
+    return diary;
   }
 }

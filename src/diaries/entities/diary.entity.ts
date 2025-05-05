@@ -72,6 +72,10 @@ export class Diary {
   @Prop({ type: Number, default: 0 })
   commentCount: number;
 
+  @ApiProperty({ description: '收藏数' })
+  @Prop({ type: Number, default: 0 })
+  favoriteCount: number;
+
   @ApiProperty({ description: '创建时间' })
   createdAt: Date;
 

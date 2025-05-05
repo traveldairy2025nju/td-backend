@@ -33,6 +33,7 @@ import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CreateCommentLikeDto } from './dto/create-comment-like.dto';
 import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
+import { CreateFavoriteDto } from './dto/create-favorite.dto';
 
 @ApiTags('游记')
 @Controller('diaries')
@@ -410,6 +411,74 @@ export class DiariesController {
         limit,
         totalPages: result.totalPages
       }
+    };
+  }
+
+  @Post('favorite')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '收藏/取消收藏游记' })
+  @ApiBody({ type: CreateFavoriteDto })
+  @ApiResponse({ status: 200, description: '操作成功' })
+  @ApiResponse({ status: 400, description: '操作失败' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 404, description: '游记未找到' })
+  @HttpCode(HttpStatus.OK)
+  async favoriteDiary(
+    @Body() createFavoriteDto: CreateFavoriteDto,
+    @GetUser() user: User
+  ) {
+    const result = await this.diariesService.favoriteDiary(createFavoriteDto, user);
+    return {
+      success: true,
+      message: result.favorited ? '收藏成功' : '取消收藏成功',
+      data: result
+    };
+  }
+
+  @Get('favorites')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取用户收藏的游记列表' })
+  @ApiQuery({ name: 'userId', type: String, required: true, description: '用户ID' })
+  @ApiQuery({ name: 'page', type: Number, required: false, description: '页码' })
+  @ApiQuery({ name: 'limit', type: Number, required: false, description: '每页数量' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  async getUserFavorites(
+    @Query('userId') userId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    const result = await this.diariesService.getUserFavorites(userId, page, limit);
+    
+    return {
+      success: true,
+      data: {
+        items: result.diaries,
+        total: result.total,
+        page,
+        limit,
+        totalPages: result.totalPages
+      }
+    };
+  }
+
+  @Get(':id/with-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取游记详情（包含点赞和收藏状态）' })
+  @ApiParam({ name: 'id', description: '游记ID' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 404, description: '游记未找到' })
+  async findOneWithUserStatus(
+    @Param('id') id: string,
+    @GetUser('_id') userId: string,
+  ) {
+    const diary = await this.diariesService.findOneWithUserStatus(id, userId);
+    return {
+      success: true,
+      data: diary
     };
   }
 } 
