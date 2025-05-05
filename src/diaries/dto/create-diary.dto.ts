@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsString, IsOptional, IsArray, IsUrl } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 export class CreateDiaryDto {
   @ApiProperty({
@@ -36,4 +37,18 @@ export class CreateDiaryDto {
   @IsString()
   @IsUrl({}, { message: '视频URL格式不正确' })
   videoUrl?: string;
+
+  @ApiProperty({
+    description: '视频URL(videoUrl的别名，兼容旧版前端)',
+    required: false,
+    example: 'http://172.29.4.76:9000/travel-diary/video123.mp4',
+  })
+  @IsOptional()
+  @IsString()
+  @IsUrl({}, { message: '视频URL格式不正确' })
+  @Transform(({ value, obj }) => {
+    // 如果已经设置了videoUrl，则优先使用videoUrl
+    return obj.videoUrl || value;
+  })
+  video?: string;
 } 
