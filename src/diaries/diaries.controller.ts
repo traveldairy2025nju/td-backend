@@ -439,29 +439,38 @@ export class DiariesController {
   @Get('favorites')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: '获取用户收藏的游记列表' })
-  @ApiQuery({ name: 'userId', type: String, required: true, description: '用户ID' })
+  @ApiOperation({ summary: '获取当前用户收藏的游记列表' })
   @ApiQuery({ name: 'page', type: Number, required: false, description: '页码' })
   @ApiQuery({ name: 'limit', type: Number, required: false, description: '每页数量' })
   @ApiResponse({ status: 200, description: '获取成功' })
   @ApiResponse({ status: 401, description: '未授权' })
   async getUserFavorites(
-    @Query('userId') userId: string,
+    @GetUser('_id') userId: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ) {
-    const result = await this.diariesService.getUserFavorites(userId, page, limit);
-    
-    return {
-      success: true,
-      data: {
-        items: result.diaries,
-        total: result.total,
-        page,
-        limit,
-        totalPages: result.totalPages
-      }
-    };
+    try {
+      console.log('收藏列表API - 用户ID:', userId);
+      const result = await this.diariesService.getUserFavorites(userId, page, limit);
+      
+      return {
+        success: true,
+        data: {
+          items: result.diaries,
+          total: result.total,
+          page,
+          limit,
+          totalPages: result.totalPages
+        }
+      };
+    } catch (error) {
+      console.error('收藏列表API错误:', error);
+      return {
+        success: false,
+        message: error.message || '获取收藏列表失败',
+        statusCode: error.status || 400
+      };
+    }
   }
 
   @Get(':id/with-status')
