@@ -11,7 +11,6 @@ import { Comment, CommentDocument } from './entities/comment.entity';
 import { CommentLike, CommentLikeDocument } from './entities/comment-like.entity';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
-import { CreateCommentLikeDto } from './dto/create-comment-like.dto';
 import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
 
 @Injectable()
@@ -190,6 +189,93 @@ export class DiariesService {
       .select('_id title content images video status rejectReason approvedAt createdAt updatedAt')
       .exec();
       
+    return {
+      diaries,
+      total,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  async search(
+    keyword: string,
+    page = 1,
+    limit = 10,
+  ): Promise<{ diaries: DiaryDocument[], total: number, totalPages: number }> {
+    const skip = (page - 1) * limit;
+
+    // 构建查询条件 - 只搜索已审核通过的游记
+    const baseQuery = { status: DiaryStatus.APPROVED };
+
+    // 聚合管道查询
+    const aggregate = this.diaryModel.aggregate([
+      // 第一步：匹配已审核通过的游记
+      { $match: baseQuery },
+
+      // 第二步：关联作者信息
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'author',
+          foreignField: '_id',
+          as: 'authorInfo'
+        }
+      },
+
+      // 第三步：展开作者信息数组
+      { $unwind: '$authorInfo' },
+
+      // 第四步：匹配关键词（标题、内容或作者昵称）
+      {
+        $match: {
+          $or: [
+            { title: { $regex: keyword, $options: 'i' } },
+            { content: { $regex: keyword, $options: 'i' } },
+            { 'authorInfo.nickname': { $regex: keyword, $options: 'i' } }
+          ]
+        }
+      },
+
+      // 第五步：添加排序
+      { $sort: { createdAt: -1 } },
+
+      // 第六步：计算总数（在分页前）
+      {
+        $facet: {
+          metadata: [{ $count: 'total' }],
+          data: [
+            { $skip: skip },
+            { $limit: limit },
+            // 格式化输出结果，保持与其他查询方法一致的字段结构
+            {
+              $project: {
+                _id: 1,
+                title: 1,
+                content: 1,
+                images: 1,
+                video: 1,
+                status: 1,
+                approvedAt: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                author: {
+                  _id: '$authorInfo._id',
+                  username: '$authorInfo.username',
+                  nickname: '$authorInfo.nickname',
+                  avatar: '$authorInfo.avatar'
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    const result = await aggregate.exec();
+
+    // 处理结果
+    const total = result[0].metadata[0]?.total || 0;
+    const diaries = result[0].data || [];
+
     return {
       diaries,
       total,
@@ -410,22 +496,22 @@ export class DiariesService {
   // 评论点赞功能
   async likeComment(createCommentLikeDto: CreateCommentLikeDto, user: User): Promise<{ liked: boolean }> {
     const { commentId } = createCommentLikeDto;
-    
+
     if (!Types.ObjectId.isValid(commentId)) {
       throw new BadRequestException('无效的评论ID');
     }
-    
+
     const comment = await this.commentModel.findById(commentId);
     if (!comment) {
       throw new NotFoundException('评论不存在');
     }
-    
+
     // 检查用户是否已经点赞
-    const existingLike = await this.commentLikeModel.findOne({ 
-      comment: commentId, 
-      user: user._id 
+    const existingLike = await this.commentLikeModel.findOne({
+      comment: commentId,
+      user: user._id
     });
-    
+
     // 如果已点赞，则取消点赞
     if (existingLike) {
       await this.commentLikeModel.findByIdAndDelete(existingLike._id);
@@ -433,55 +519,55 @@ export class DiariesService {
       await this.commentModel.findByIdAndUpdate(commentId, { $inc: { likeCount: -1 } });
       return { liked: false };
     }
-    
+
     // 如果未点赞，则添加点赞
     const newLike = new this.commentLikeModel({
       comment: commentId,
       user: user._id
     });
-    
+
     await newLike.save();
-    
+
     // 更新点赞数量
     await this.commentModel.findByIdAndUpdate(commentId, { $inc: { likeCount: 1 } });
-    
+
     return { liked: true };
   }
-  
+
   // 获取用户是否已点赞评论
   async getUserCommentLikeStatus(commentId: string, userId: string): Promise<boolean> {
     if (!Types.ObjectId.isValid(commentId)) {
       throw new BadRequestException('无效的评论ID');
     }
-    
-    const existingLike = await this.commentLikeModel.findOne({ 
-      comment: commentId, 
-      user: userId 
+
+    const existingLike = await this.commentLikeModel.findOne({
+      comment: commentId,
+      user: userId
     });
-    
+
     return !!existingLike;
   }
-  
+
   // 扩展getComments方法，包含点赞状态
   async getCommentsWithLikeStatus(
-    diaryId: string, 
+    diaryId: string,
     userId: string | null,
-    page = 1, 
+    page = 1,
     limit = 10
   ): Promise<{ comments: (CommentWithReplies & { isLiked?: boolean })[], total: number, totalPages: number }> {
     if (!Types.ObjectId.isValid(diaryId)) {
       throw new BadRequestException('无效的游记ID');
     }
-    
+
     const skip = (page - 1) * limit;
-    
+
     // 获取顶级评论（没有父评论的评论）
-    const total = await this.commentModel.countDocuments({ 
+    const total = await this.commentModel.countDocuments({
       diary: diaryId,
       parentComment: null
     });
-    
-    const comments = await this.commentModel.find({ 
+
+    const comments = await this.commentModel.find({
       diary: diaryId,
       parentComment: null
     })
@@ -491,25 +577,25 @@ export class DiariesService {
       .populate('user', '_id username nickname avatar')
       .lean()  // 转换为普通JavaScript对象，便于修改
       .exec();
-    
+
     // 获取子评论并添加点赞状态
     const commentResults: (CommentWithReplies & { isLiked?: boolean })[] = [];
-    
+
     for (const comment of comments) {
-      const replies = await this.commentModel.find({ 
-        parentComment: comment._id 
+      const replies = await this.commentModel.find({
+        parentComment: comment._id
       })
         .sort({ createdAt: 1 })
         .populate('user', '_id username nickname avatar')
         .lean()  // 转换为普通JavaScript对象
         .exec();
-      
+
       // 如果提供了用户ID，添加点赞状态
       let isCommentLiked = false;
       if (userId) {
         isCommentLiked = await this.getUserCommentLikeStatus(comment._id.toString(), userId);
       }
-      
+
       // 获取子评论的点赞状态
       const repliesWithLikeStatus = [];
       if (userId) {
@@ -523,21 +609,21 @@ export class DiariesService {
       } else {
         repliesWithLikeStatus.push(...replies);
       }
-      
+
       // 将回复添加到评论对象中
       const commentWithReplies = {
         ...comment,
         isLiked: isCommentLiked,
         replies: repliesWithLikeStatus || []
       };
-      
+
       commentResults.push(commentWithReplies);
     }
-    
+
     return {
       comments: commentResults,
       total,
       totalPages: Math.ceil(total / limit)
     };
   }
-} 
+}
