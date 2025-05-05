@@ -436,7 +436,7 @@ export class DiariesController {
     };
   }
 
-  @Get('favorites')
+  @Get('user/favorites')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '获取当前用户收藏的游记列表' })
