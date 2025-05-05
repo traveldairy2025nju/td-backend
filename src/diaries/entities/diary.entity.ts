@@ -64,6 +64,14 @@ export class Diary {
   })
   reviewedBy: User;
 
+  @ApiProperty({ description: '点赞数' })
+  @Prop({ type: Number, default: 0 })
+  likeCount: number;
+
+  @ApiProperty({ description: '评论数' })
+  @Prop({ type: Number, default: 0 })
+  commentCount: number;
+
   @ApiProperty({ description: '创建时间' })
   createdAt: Date;
 

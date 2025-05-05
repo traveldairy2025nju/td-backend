@@ -6,10 +6,16 @@ import { DiariesService } from './diaries.service';
 import { DiariesController } from './diaries.controller';
 import { Diary, DiarySchema } from './entities/diary.entity';
 import { MinioModule } from '../minio/minio.module';
+import { Like, LikeSchema } from './entities/like.entity';
+import { Comment, CommentSchema } from './entities/comment.entity';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Diary.name, schema: DiarySchema }]),
+    MongooseModule.forFeature([
+      { name: Diary.name, schema: DiarySchema },
+      { name: Like.name, schema: LikeSchema },
+      { name: Comment.name, schema: CommentSchema },
+    ]),
     MulterModule.register({
       storage: memoryStorage(),
     }),
