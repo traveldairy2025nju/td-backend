@@ -11,6 +11,7 @@ import { Comment, CommentDocument } from './entities/comment.entity';
 import { CommentLike, CommentLikeDocument } from './entities/comment-like.entity';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { CreateCommentLikeDto } from './dto/create-comment-like.dto';
 import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
 import {CreateCommentLikeDto} from "./dto/create-comment-like.dto";
 
@@ -71,7 +72,7 @@ export class DiariesService {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('_id title content images video author status approvedAt createdAt updatedAt')
+      .select('_id title content images video author status likeCount commentCount approvedAt createdAt updatedAt')
       .populate('author', '_id username nickname avatar')
       .exec();
       
@@ -88,7 +89,7 @@ export class DiariesService {
     }
     
     const diary = await this.diaryModel.findById(id)
-      .select('_id title content images video author status rejectReason approvedAt reviewedBy createdAt updatedAt')
+      .select('_id title content images video author status rejectReason approvedAt reviewedBy likeCount commentCount createdAt updatedAt')
       .populate('author', '_id username nickname avatar')
       .populate('reviewedBy', '_id username nickname')
       .exec();
@@ -187,7 +188,7 @@ export class DiariesService {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('_id title content images video status rejectReason approvedAt createdAt updatedAt')
+      .select('_id title content images video status rejectReason likeCount commentCount approvedAt createdAt updatedAt')
       .exec();
       
     return {
@@ -258,6 +259,8 @@ export class DiariesService {
                 approvedAt: 1,
                 createdAt: 1,
                 updatedAt: 1,
+                likeCount: 1,
+                commentCount: 1,
                 author: {
                   _id: '$authorInfo._id',
                   username: '$authorInfo.username',
@@ -482,13 +485,26 @@ export class DiariesService {
   }
 
   // 扩展findOne方法，包含点赞状态
-  async findOneWithLikeStatus(id: string, userId?: string): Promise<DiaryDocument & { isLiked?: boolean }> {
-    const diary = await this.findOne(id);
+  async findOneWithLikeStatus(id: string, userId?: string): Promise<any> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('无效的日记ID');
+    }
+    
+    const diary = await this.diaryModel.findById(id)
+      .select('_id title content images video author status rejectReason approvedAt reviewedBy likeCount commentCount createdAt updatedAt')
+      .populate('author', '_id username nickname avatar')
+      .populate('reviewedBy', '_id username nickname')
+      .exec();
+      
+    if (!diary) {
+      throw new NotFoundException('日记未找到');
+    }
     
     // 如果提供了用户ID，则检查用户是否已点赞
     if (userId) {
       const isLiked = await this.getUserLikeStatus(id, userId);
-      return { ...diary.toObject(), isLiked };
+      const diaryObj = diary.toObject();
+      return { ...diaryObj, isLiked };
     }
     
     return diary;
