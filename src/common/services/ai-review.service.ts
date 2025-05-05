@@ -14,7 +14,7 @@ export class AiReviewService {
   }
 
   private generatePrompt(title: string, content: string): string {
-    return `请作为一个内容审核专家，对以下旅游日记进行审核。请仅从内容合规性的角度（包括但不限于暴力、色情、歧视、违法等）进行评估。
+    return `/no_think 请作为一个内容审核专家，对以下旅游日记进行审核。请仅从内容合规性的角度（包括但不限于暴力、色情、歧视、违法等）进行评估。
 请以JSON格式回复，包含以下字段：
 - approved: 布尔值，表示是否通过审核
 - reason: 字符串，详细说明通过或拒绝的原因
