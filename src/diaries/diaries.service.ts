@@ -12,6 +12,7 @@ import { CommentLike, CommentLikeDocument } from './entities/comment-like.entity
 import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CommentWithReplies } from './interfaces/comment-with-replies.interface';
+import {CreateCommentLikeDto} from "./dto/create-comment-like.dto";
 
 @Injectable()
 export class DiariesService {
