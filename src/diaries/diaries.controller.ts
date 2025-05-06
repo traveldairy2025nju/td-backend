@@ -261,7 +261,7 @@ export class DiariesController {
     const diary = await this.diariesService.update(id, updateDiaryDto, userId);
     return {
       success: true,
-      message: '游记更新成功，保持原有审核状态（开发模式）',
+      message: '游记更新成功，状态已重置为待审核',
       data: diary
     };
   }

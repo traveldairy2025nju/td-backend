@@ -164,12 +164,7 @@ export class DiariesService {
     }
     */
     
-    // 保存原状态，开发模式下保持状态不变
-    const originalStatus = diary.status;
-    const originalApprovedAt = diary.approvedAt;
-    const originalReviewedBy = diary.reviewedBy;
-    
-    // 更新日记
+    // 更新日记，并将状态重置为待审核
     const updatedDiary = await this.diaryModel.findByIdAndUpdate(
       id,
       {
@@ -177,11 +172,11 @@ export class DiariesService {
         content: updateDiaryDto.content || diary.content,
         images: updateDiaryDto.images || diary.images,
         video: updateDiaryDto.videoUrl !== undefined ? updateDiaryDto.videoUrl : diary.video,
-        // 保持原状态，不重置为pending
-        status: originalStatus,
+        // 将状态重置为待审核
+        status: DiaryStatus.PENDING,
         rejectReason: null, // 清除拒绝原因
-        reviewedBy: originalReviewedBy,
-        approvedAt: originalApprovedAt,
+        reviewedBy: null, // 清除审核人
+        approvedAt: null, // 清除审核时间
       },
       { new: true }
     ).populate('author', 'username nickname avatar');
