@@ -986,4 +986,39 @@ export class DiariesService {
       throw new BadRequestException('获取附近游记失败: ' + error.message);
     }
   }
+
+  // 获取管理员审核过的游记列表
+  async findReviewedByAdmin(
+    adminId: string,
+    days: number = 30,
+    page = 1,
+    limit = 10
+  ): Promise<{ diaries: DiaryDocument[], total: number, totalPages: number }> {
+    if (!Types.ObjectId.isValid(adminId)) {
+      throw new BadRequestException('无效的管理员ID');
+    }
+
+    // 计算指定天数前的日期
+    const daysAgo = new Date();
+    daysAgo.setDate(daysAgo.getDate() - days);
+
+    const query = {
+      reviewedBy: adminId,
+      updatedAt: { $gte: daysAgo } // 筛选指定天数内审核的游记
+    };
+
+    const total = await this.diaryModel.countDocuments(query);
+    const diaries = await this.diaryModel.find(query)
+      .sort({ updatedAt: -1 }) // 按审核时间倒序
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('author', '_id username nickname avatar')
+      .exec();
+
+    return {
+      diaries,
+      total,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
 }

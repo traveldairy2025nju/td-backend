@@ -293,6 +293,52 @@ export class DiariesController {
     }
   }
 
+  @Get('my-reviewed')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取当前管理员审核过的游记列表' })
+  @ApiQuery({ name: 'days', type: Number, required: false, description: '最近几天内审核的游记，默认30天' })
+  @ApiQuery({ name: 'page', type: Number, required: false, description: '页码' })
+  @ApiQuery({ name: 'limit', type: Number, required: false, description: '每页数量' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  async getMyReviewedDiaries(
+    @GetUser('_id') adminId: string,
+    @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    try {
+      const result = await this.diariesService.findReviewedByAdmin(adminId, days, page, limit);
+      
+      // 确保每个游记的_id字段存在
+      const transformedDiaries = result.diaries.map(diary => {
+        const diaryObj = diary.toObject ? diary.toObject() : diary;
+        if (!diaryObj._id && diaryObj.id) {
+          diaryObj._id = diaryObj.id;
+        }
+        return diaryObj;
+      });
+      
+      return {
+        success: true,
+        data: {
+          items: transformedDiaries,
+          total: result.total,
+          page,
+          limit,
+          totalPages: result.totalPages
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || '获取审核过的游记列表失败',
+        statusCode: error.status || 400
+      };
+    }
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '获取游记详情' })
   @ApiParam({ name: 'id', description: '游记ID' })
