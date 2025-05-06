@@ -222,6 +222,77 @@ export class DiariesController {
     };
   }
 
+  @Get('nearby')
+  @ApiOperation({ summary: '获取附近的游记' })
+  @ApiQuery({ name: 'latitude', type: Number, required: true, description: '当前位置纬度' })
+  @ApiQuery({ name: 'longitude', type: Number, required: true, description: '当前位置经度' })
+  @ApiQuery({ name: 'page', type: Number, required: false, description: '页码' })
+  @ApiQuery({ name: 'limit', type: Number, required: false, description: '每页数量' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 400, description: '参数错误' })
+  async findNearbyDiaries(
+    @Query('latitude') latitudeStr: string,
+    @Query('longitude') longitudeStr: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    // 转换经纬度为数字
+    const latitude = parseFloat(latitudeStr);
+    const longitude = parseFloat(longitudeStr);
+    
+    if (isNaN(latitude) || isNaN(longitude)) {
+      return {
+        success: false,
+        message: '无效的经纬度值',
+        data: null
+      };
+    }
+    
+    try {
+      const result = await this.diariesService.findNearbyDiaries(
+        latitude,
+        longitude,
+        page,
+        limit
+      );
+      
+      // 处理数据，加入距离的显示格式
+      const diaries = result.diaries.map(diary => {
+        const diaryObj = diary.toObject ? diary.toObject() : diary;
+        
+        // 格式化距离显示
+        if (diaryObj.distance !== null && diaryObj.distance !== undefined) {
+          if (diaryObj.distance < 1000) {
+            diaryObj.distanceText = `${Math.round(diaryObj.distance)}米`;
+          } else {
+            diaryObj.distanceText = `${(diaryObj.distance / 1000).toFixed(1)}公里`;
+          }
+        } else {
+          diaryObj.distanceText = '未知距离';
+        }
+        
+        return diaryObj;
+      });
+      
+      return {
+        success: true,
+        data: {
+          items: diaries,
+          total: result.total,
+          page,
+          limit,
+          totalPages: result.totalPages
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || '获取附近游记失败',
+        statusCode: error.status || 400
+      };
+    }
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '获取游记详情' })
   @ApiParam({ name: 'id', description: '游记ID' })

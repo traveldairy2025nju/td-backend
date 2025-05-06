@@ -820,4 +820,170 @@ export class DiariesService {
     
     return diary;
   }
+
+  // 根据用户当前位置获取附近的游记
+  async findNearbyDiaries(
+    latitude: number,
+    longitude: number,
+    page = 1,
+    limit = 10,
+  ): Promise<{ diaries: DiaryDocument[], total: number, totalPages: number }> {
+    // 验证经纬度合法性
+    if (latitude < -90 || latitude > 90) {
+      throw new BadRequestException('纬度值必须在-90到90之间');
+    }
+    if (longitude < -180 || longitude > 180) {
+      throw new BadRequestException('经度值必须在-180到180之间');
+    }
+
+    // 计算分页
+    const skip = (page - 1) * limit;
+
+    try {
+      // 使用聚合查询
+      const aggregate = this.diaryModel.aggregate([
+        // 只查询已审核通过的游记
+        { $match: { status: DiaryStatus.APPROVED } },
+        
+        // 计算距离 - 使用MongoDB的geoNear计算方式
+        {
+          $addFields: {
+            hasLocation: {
+              $and: [
+                { $ne: ["$location", null] },
+                { $ne: ["$location.latitude", null] },
+                { $ne: ["$location.longitude", null] }
+              ]
+            }
+          }
+        },
+        
+        // 添加计算距离的字段
+        {
+          $addFields: {
+            distance: {
+              $cond: {
+                if: "$hasLocation",
+                then: {
+                  // 使用余弦定理计算距离（地球上两点间的球面距离）
+                  $multiply: [
+                    6371000, // 地球半径（米）
+                    {
+                      $acos: {
+                        $min: [
+                          1,
+                          {
+                            $sum: [
+                              {
+                                $multiply: [
+                                  { $sin: { $degreesToRadians: "$location.latitude" } },
+                                  { $sin: { $degreesToRadians: latitude } }
+                                ]
+                              },
+                              {
+                                $multiply: [
+                                  { $cos: { $degreesToRadians: "$location.latitude" } },
+                                  { $cos: { $degreesToRadians: latitude } },
+                                  { $cos: { $subtract: [
+                                    { $degreesToRadians: "$location.longitude" },
+                                    { $degreesToRadians: longitude }
+                                  ]}}
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                else: 999999999 // 对于没有位置信息的游记，设置一个最大距离值
+              }
+            }
+          }
+        },
+        
+        // 按照是否有位置和距离排序
+        {
+          $addFields: {
+            sortOrder: {
+              $cond: { if: "$hasLocation", then: 0, else: 1 }
+            }
+          }
+        },
+        
+        // 先按照有无位置排序，再按距离排序，最后按创建时间排序
+        { $sort: { sortOrder: 1, distance: 1, createdAt: -1 } },
+        
+        // 关联作者信息
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'author',
+            foreignField: '_id',
+            as: 'authorInfo'
+          }
+        },
+        { $unwind: '$authorInfo' },
+        
+        // 计算总数和分页
+        {
+          $facet: {
+            metadata: [{ $count: 'total' }],
+            data: [
+              { $skip: skip },
+              { $limit: limit },
+              // 格式化输出
+              {
+                $project: {
+                  _id: 1,
+                  title: 1,
+                  content: 1,
+                  images: 1,
+                  video: 1,
+                  location: 1,
+                  status: 1,
+                  distance: { 
+                    $cond: { 
+                      if: "$hasLocation", 
+                      then: "$distance", 
+                      else: null 
+                    } 
+                  },
+                  hasLocation: 1,
+                  likeCount: 1,
+                  commentCount: 1,
+                  favoriteCount: 1,
+                  approvedAt: 1,
+                  createdAt: 1,
+                  updatedAt: 1,
+                  author: {
+                    _id: '$authorInfo._id',
+                    username: '$authorInfo.username',
+                    nickname: '$authorInfo.nickname',
+                    avatar: '$authorInfo.avatar'
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]);
+
+      const result = await aggregate.exec();
+      
+      // 处理结果
+      const total = result[0].metadata[0]?.total || 0;
+      const diaries = result[0].data || [];
+
+      return {
+        diaries,
+        total,
+        totalPages: Math.ceil(total / limit)
+      };
+    } catch (error) {
+      console.error('获取附近游记失败:', error);
+      throw new BadRequestException('获取附近游记失败: ' + error.message);
+    }
+  }
 }
