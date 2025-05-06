@@ -11,6 +11,21 @@ export enum DiaryStatus {
   REJECTED = 'rejected',
 }
 
+// 新增位置接口定义
+export class Location {
+  @ApiProperty({ description: '位置名称' })
+  name: string;
+
+  @ApiProperty({ description: '位置地址' })
+  address: string;
+
+  @ApiProperty({ description: '纬度' })
+  latitude: number;
+
+  @ApiProperty({ description: '经度' })
+  longitude: number;
+}
+
 @Schema({ timestamps: true })
 export class Diary {
   @ApiProperty({ description: '游记ID' })
@@ -31,6 +46,18 @@ export class Diary {
   @ApiProperty({ description: '视频链接', required: false })
   @Prop({ type: String, default: null })
   video: string;
+
+  @ApiProperty({ description: '位置信息', required: false, type: Location })
+  @Prop({ 
+    type: {
+      name: { type: String },
+      address: { type: String },
+      latitude: { type: Number },
+      longitude: { type: Number }
+    }, 
+    default: null 
+  })
+  location: Location;
 
   @ApiProperty({ description: '作者ID' })
   @Prop({ 

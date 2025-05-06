@@ -35,6 +35,7 @@ export class DiariesService {
         content: createDiaryDto.content,
         images: createDiaryDto.images,
         video: createDiaryDto.videoUrl || createDiaryDto.video || null,
+        location: createDiaryDto.location || null, // 添加位置信息
         author: author._id,
         status: DiaryStatus.PENDING, // 修改为待审核状态
         approvedAt: null, // 清空审核时间
@@ -74,7 +75,7 @@ export class DiariesService {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('_id title content images video author status likeCount commentCount approvedAt createdAt updatedAt')
+      .select('_id title content images video location author status likeCount commentCount approvedAt createdAt updatedAt')
       .populate('author', '_id username nickname avatar')
       .exec();
       
@@ -110,7 +111,7 @@ export class DiariesService {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('_id title content images video author status rejectReason likeCount commentCount createdAt updatedAt')
+      .select('_id title content images video location author status rejectReason likeCount commentCount createdAt updatedAt')
       .populate('author', '_id username nickname avatar')
       .exec();
       
@@ -127,7 +128,7 @@ export class DiariesService {
     }
     
     const diary = await this.diaryModel.findById(id)
-      .select('_id title content images video author status rejectReason approvedAt reviewedBy likeCount commentCount createdAt updatedAt')
+      .select('_id title content images video location author status rejectReason approvedAt reviewedBy likeCount commentCount createdAt updatedAt')
       .populate('author', '_id username nickname avatar')
       .populate('reviewedBy', '_id username nickname')
       .exec();
@@ -172,6 +173,7 @@ export class DiariesService {
         content: updateDiaryDto.content || diary.content,
         images: updateDiaryDto.images || diary.images,
         video: updateDiaryDto.videoUrl !== undefined ? updateDiaryDto.videoUrl : diary.video,
+        location: updateDiaryDto.location !== undefined ? updateDiaryDto.location : diary.location, // 更新位置信息
         // 将状态重置为待审核
         status: DiaryStatus.PENDING,
         rejectReason: null, // 清除拒绝原因
@@ -221,7 +223,7 @@ export class DiariesService {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('_id title content images video status rejectReason likeCount commentCount approvedAt createdAt updatedAt')
+      .select('_id title content images video location author status rejectReason likeCount commentCount approvedAt createdAt updatedAt')
       .exec();
       
     return {
@@ -288,6 +290,7 @@ export class DiariesService {
                 content: 1,
                 images: 1,
                 video: 1,
+                location: 1,  // 添加位置信息
                 status: 1,
                 approvedAt: 1,
                 createdAt: 1,
@@ -524,7 +527,7 @@ export class DiariesService {
     }
     
     const diary = await this.diaryModel.findById(id)
-      .select('_id title content images video author status rejectReason approvedAt reviewedBy likeCount commentCount createdAt updatedAt')
+      .select('_id title content images video location author status rejectReason approvedAt reviewedBy likeCount commentCount createdAt updatedAt')
       .populate('author', '_id username nickname avatar')
       .populate('reviewedBy', '_id username nickname')
       .exec();
@@ -798,7 +801,7 @@ export class DiariesService {
     }
     
     const diary = await this.diaryModel.findById(id)
-      .select('_id title content images video author status rejectReason approvedAt reviewedBy likeCount commentCount favoriteCount createdAt updatedAt')
+      .select('_id title content images video location author status rejectReason approvedAt reviewedBy likeCount commentCount favoriteCount createdAt updatedAt')
       .populate('author', '_id username nickname avatar')
       .populate('reviewedBy', '_id username nickname')
       .exec();

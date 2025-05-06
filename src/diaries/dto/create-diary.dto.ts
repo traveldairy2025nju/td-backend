@@ -1,6 +1,45 @@
-import { IsNotEmpty, IsString, IsOptional, IsArray, IsUrl } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsArray, IsUrl, IsObject, ValidateNested, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+
+// 位置信息DTO
+export class LocationDto {
+  @ApiProperty({
+    description: '位置名称',
+    example: '故宫博物院',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({
+    description: '位置地址',
+    example: '北京市东城区景山前街4号',
+  })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiProperty({
+    description: '纬度',
+    example: 39.9163,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiProperty({
+    description: '经度',
+    example: 116.3972,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
+}
 
 export class CreateDiaryDto {
   @ApiProperty({
@@ -51,4 +90,15 @@ export class CreateDiaryDto {
     return obj.videoUrl || value;
   })
   video?: string;
+
+  @ApiProperty({
+    description: '位置信息',
+    required: false,
+    type: LocationDto
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => LocationDto)
+  location?: LocationDto;
 } 

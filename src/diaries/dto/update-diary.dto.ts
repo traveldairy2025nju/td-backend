@@ -1,5 +1,7 @@
-import { IsOptional, IsString, IsArray, IsUrl } from 'class-validator';
+import { IsOptional, IsString, IsArray, IsUrl, IsObject, ValidateNested } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { LocationDto } from './create-diary.dto';
 
 export class UpdateDiaryDto {
   @ApiProperty({
@@ -36,4 +38,15 @@ export class UpdateDiaryDto {
   @IsString()
   @IsUrl({}, { message: '视频URL格式不正确' })
   videoUrl?: string;
+
+  @ApiProperty({
+    description: '位置信息',
+    required: false,
+    type: LocationDto
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => LocationDto)
+  location?: LocationDto;
 } 
